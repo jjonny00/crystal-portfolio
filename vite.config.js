@@ -5,6 +5,9 @@ import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import mdx from '@mdx-js/rollup'
+import remarkFrontmatter from 'remark-frontmatter'
+import { devlogEntries, rehypeDevlogMedia } from './scripts/devlog/vitePlugin.mjs'
 import {
   CRYSTAL_NORMAL_MAP,
   DUST_TEXTURE,
@@ -93,7 +96,22 @@ const appChunkInfo = () => {
 
 // https://vite.dev/config/
 export default defineConfig(({ isSsrBuild }) => ({
-  plugins: [react(), appChunkInfo()],
+  plugins: [
+    // The devlog's entries (src/devlog/content/entries/*.mdx). MDX first, so
+    // React's plugin sees the JSX it compiles to; the frontmatter is stripped
+    // from the body here and read by devlogEntries() instead. See docs/devlog.md.
+    {
+      enforce: 'pre',
+      ...mdx({
+        include: /\.mdx$/,
+        remarkPlugins: [remarkFrontmatter],
+        rehypePlugins: [[rehypeDevlogMedia, { root: projectRoot }]],
+      }),
+    },
+    react({ include: /\.(mdx|js|jsx|ts|tsx)$/ }),
+    appChunkInfo(),
+    devlogEntries(),
+  ],
   define: {
     __LOADER_ASSET_BYTES__: JSON.stringify(loaderAssetBytes()),
   },

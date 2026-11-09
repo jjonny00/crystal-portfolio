@@ -10,13 +10,19 @@ previews, and deep links that land in place.
 | `/` | hero, normal intro | yes |
 | `/work/<slug>`, project with a case study | the case study, readable immediately; the scene loads behind it | yes |
 | `/work/<slug>`, project without one | the project's facet, after the loader, no intro | yes |
+| `/work/secondsentence/devlog/<entry>` | that devlog entry, inside Second Sentence's case study (its subpath); the fast path, as a case study | yes (published entries) |
+| `/work/secondsentence/feed.xml` | the devlog's RSS feed (a static file) | n/a |
 | `/about` | About, after the loader, no intro | canonical → `/` |
 | `/work` | overview, after the loader, no intro | canonical → `/` |
 | anything else | `404.html` (static, no app), served with a 404 status by Netlify | no |
 
 Slugs live on each project in `src/data/projects.js` (`slug`). They are public
 URLs: renaming one breaks inbound links and search results. A project's search
-title, description and share image are next to it (`seo`).
+title, description and share image are next to it (`seo`). A project's
+`legacySlugs` (an earlier project in its slot: `slipstream`) resolve to it on the
+client, and `netlify.toml` 301s them.
+
+The devlog's routes, history and prerendered pages are in `docs/devlog.md`.
 
 `src/navigation/routes.js` is the single path ↔ destination mapping
 (`parsePath`, `pathFor`, `getPrerenderRoutes`). Both the client and the build use

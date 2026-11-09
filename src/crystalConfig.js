@@ -287,7 +287,7 @@ export const debris = {
   // finer debris drifts less than the fragments. A piece's own `magnetFollow`
   // overrides that: a large shard close to a neighbouring facet follows nearly
   // all of it. A piece's `magnetShare` (by facet key) instead blends several
-  // facets' pulls: the plate between Mesa and Slipstream rides the gap between
+  // facets' pulls: the plate between Mesa and Second Sentence rides the gap between
   // them, so it isn't squeezed when the magnet draws them together.
   magnet: {
     follow: [0.2, 0.65],
@@ -322,7 +322,7 @@ export const debris = {
   // each piece clear of every facet's outline on screen at the overview by at
   // least 16 px.
   items: [
-    // Mesa | Slipstream: a plate, two slivers and a chip, the strongest group.
+    // Mesa | Second Sentence: a plate, two slivers and a chip, the strongest group.
     { facet: 'exploration', model: 'shard_12_thick_plate', length: 0.42, magnetShare: { exploration: 0.5, leadership: 0.5 }, seat: [-0.535, 0.816, 0.412], seatTurn: [-0.2838, -0.3771, 0.0105, 0.8816], rest: [0.331, 1.295, 1.347], turn: [-0.2748, -0.2978, 0.0959, 0.9092], select: { leadership: { rest: [0.444, 1.399, 1.531] } }, mobile: { select: { leadership: { rest: [0.289, 1.262, 1.374] } } } },
     { facet: 'leadership', model: 'shard_08_wedge', length: 0.2, seat: [-0.298, 1.389, 0.19], seatTurn: [-0.3744, 0.2841, 0.8826, -0.0096], rest: [-0.901, 1.308, -0.36], turn: [-0.4072, 0.3236, 0.8517, -0.0637], select: { leadership: { rest: [-0.747, 1.315, -0.404] } }, mobile: { select: { leadership: { rest: [-0.759, 1.438, -0.13] } } } },
     { facet: 'exploration', model: 'shard_04_skew', length: 0.16, seat: [-0.386, 1.274, 0.187], seatTurn: [-0.2838, -0.3771, 0.0105, 0.8816], rest: [0.297, 1.64, 1.286], turn: [-0.3945, -0.2684, -0.0066, 0.8788], select: { leadership: { rest: [0.363, 1.66, 1.246] } }, mobile: { select: {} } },
@@ -344,7 +344,7 @@ export const debris = {
     // A single stray chip.
     { facet: 'system', model: 'chip_02_flake', length: 0.06, seat: [-0.678, -0.902, 0.291], seatTurn: [0.175, -0.5598, -0.2159, 0.7806], rest: [-0.684, -1.267, 0.539], turn: [0.2324, -0.5738, -0.218, 0.7545], select: { narrative: { rest: [-0.78, -1.266, 0.437] } }, mobile: { select: {} } },
     // Final layer: small additions to three of the groups, none by GE.
-    // Mesa | Slipstream: a chip by the plate, one lower toward the gap, and a sliver
+    // Mesa | Second Sentence: a chip by the plate, one lower toward the gap, and a sliver
     // set farther back off Mesa's upper edge.
     { facet: 'exploration', model: 'chip_03_spike', length: 0.06, seat: [-0.368, 1.388, 0.108], seatTurn: [-0.2838, -0.3771, 0.0105, 0.8816], rest: [0.158, 1.655, 0.179], turn: [-0.3153, -0.2932, 0.0212, 0.9023], select: { leadership: { rest: [0.177, 1.671, 0.148] } }, mobile: { select: {} } },
     { facet: 'leadership', model: 'chip_02_flake', length: 0.045, seat: [-0.403, 0.259, 0.661], seatTurn: [-0.0053, -0.1315, 0.138, 0.9817], rest: [-0.62, 0.524, 0.433], turn: [-0.1283, -0.1203, 0.2285, 0.9575], select: { leadership: { rest: [-0.746, 0.494, 0.487] } }, mobile: { select: { leadership: { rest: [-0.692, 0.529, 0.468] } } } },

@@ -118,13 +118,19 @@ const CaseStudyOverlay = ({
    * case study (NextProjectSection). Without them its links are plain links.
    */
   navigation = null,
+  /**
+   * The page within the case study, for one that has pages of its own (the
+   * devlog: 'devlog/<slug>' for an entry, null for its archive). Passed on
+   * through CaseStudyNavContext; `navigation.onNavigateSubpath` moves it.
+   */
+  subpath = null,
 }) => {
   const scrollRef = useRef(null);
   const slug = project?.caseStudySlug || null;
   const navProjectId = project?.facetKey || project?.id || null;
   const navContext = useMemo(
-    () => ({ projectId: navProjectId, ...navigation }),
-    [navProjectId, navigation]
+    () => ({ projectId: navProjectId, subpath, ...navigation }),
+    [navProjectId, subpath, navigation]
   );
   const supported = hasCaseStudy(slug);
   const entryMode = getCaseStudyEntry(slug);

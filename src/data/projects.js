@@ -13,38 +13,57 @@ import {
 
 export const projects = [
   {
+    // The first slot: its fragment, its place in the facet map and the layout
+    // JSON's per-project settings are all keyed on 'project01', so the id stays.
+    // Slipstream held this slot until Nov 2026; Second Sentence replaced it.
     id: 'project01',
-    // URL identity: /work/slipstream. Stable once published, since inbound links
-    // and search results point at it.
-    slug: 'slipstream',
+    // URL identity: /work/secondsentence. Stable once published, since inbound
+    // links and search results point at it.
+    slug: 'secondsentence',
+    // Earlier URLs for this slot. routes.js resolves them to this project, and
+    // netlify.toml redirects them (301) so search results move over.
+    legacySlugs: ['slipstream'],
     // Search result + share card. Title gets ' | Jon Shaw' appended; keep the
     // description under ~160 characters so it is not cut off.
     seo: {
-      title: 'Slipstream: Designing Around Essence',
+      title: 'Second Sentence: Devlog',
       description:
-        'A VR combat prototype in Unreal Engine where one resource, Essence, powers movement, weapons, and the world itself, unifying traversal, combat, and progression.',
-      image: '/og/slipstream.jpg'
+        'The development log for Second Sentence, a movement-driven third-person action shooter in Unreal Engine, set inside an enormous interstellar prison cell.',
+      image: '/og/secondsentence.jpg'
     },
     facetKey: 'project01',
     modelKey: 'project01',
     crystalKey: 'leadership',
     placementKey: 'exploration',
     runtimeModelKey: 'project06',
-    title: 'SLIPSTREAM',
-    label: 'Slipstream',
-    subtitle: 'VR Combat Prototype · Unreal Engine',
-    tagline: 'VR Combat Prototype · Unreal Engine',
-    shortTagline: 'VR Prototype · Unreal',
+    title: 'SECOND SENTENCE',
+    label: 'Second Sentence',
+    subtitle: 'Third-Person Action · Unreal Engine · In Development',
+    tagline: 'Third-Person Action · Unreal Engine · In Development',
+    shortTagline: 'Third-Person Action · Unreal',
+    // The stable description: shown on the preview only until the first devlog
+    // entry is published. After that the preview leads with the latest entry
+    // (src/devlog/projectPreview.js), so no entry's copy belongs here.
     description:
-      'A VR action prototype built around one shared system: Essence powers everything. The same energy drives movement, weapons, and the dormant facility itself, turning traversal, combat, and progression into one continuous economy. SlipStream lets the player float, surge, and chain momentum through a vertical world built around powered cores, hostile drones, and high-speed decision making.',
-    secondaryCopy: 'Game Design · Systems Design · Unreal Engine',
-    roles: 'Prototype R&D · Movement, combat, and resource systems',
-    cta: 'Designing Around Essence',
+      'A movement-driven third-person action shooter set inside an enormous interstellar prison cell. The prison offers lethal contracts to reduce your sentence, and instead of letting you leave, it warps bounded sections of distant worlds into the cell. Echo Suits change how movement and combat interact.',
+    cta: 'Explore the Devlog',
+    // The case study is the devlog: its archive at /work/secondsentence, each
+    // entry at /work/secondsentence/devlog/<slug>. See docs/devlog.md.
+    caseStudySlug: 'secondsentence',
+    // The devlog's two tones (see docs/case-study-system.md): A and B swap as
+    // ink and ground from section to section.
+    caseStudyColors: {
+      a: '#F4F9FF',
+      b: '#130715'
+    },
+    // The selected-project preview reads its headline, summary and date from
+    // the latest published devlog entry (src/devlog/projectPreview.js).
+    devlog: true,
     // Only the keys that differ: ProjectFocusSection spreads mobile over the
     // project, so anything left out here keeps its desktop value.
     mobile: {
       description:
-        'In this VR combat prototype, Essence powers movement, weapons, and the world itself, unifying traversal, combat, and progression in one high-speed economy.',
+        'A movement-driven third-person action shooter set inside an enormous interstellar prison cell, where lethal contracts reduce your sentence.',
       secondaryCopy: null,
       metrics: null,
       roles: null
@@ -56,9 +75,10 @@ export const projects = [
       darkText: false,
       color: '#3c4375'
     },
-    technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#a51dff',
-    headlineColor: '#873cff',
+    color: '#F4F9FF',
+    headlineColor: '#F4F9FF',
+    // The fragment's artwork. Kept from the slot's previous project, since it
+    // is part of the scene rather than of the project's story.
     imageUrl: '/assets/projects/experimental-interactions.jpg',
     overlayImage: '/assets/projects/experimental-interactions.jpg'
   },

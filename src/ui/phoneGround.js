@@ -15,7 +15,7 @@
 // (legibility/scrimTone.js): a colour you can see here and tune on the phone
 // beats one that breathes with the crystal. The project skies' own colours
 // (projectBackgrounds.js) were tried first and don't work: tone mapping, bloom
-// and the crystal's glow move the rendered edge a long way from them — Slipstream's
+// and the crystal's glow move the rendered edge a long way from them — Second Sentence's
 // sky is green in that file and lavender on screen.
 //
 // The starting values were measured from the rendered frame's bottom edge on a
@@ -31,7 +31,7 @@ const PHONE_GROUNDS = {
   // hero (index.css). Not darkened.
   hero: null,
   overview: '#2c3051',
-  'project-project01': '#817aba', // Slipstream
+  'project-project01': '#817aba', // Second Sentence
   'project-project02': '#76846e', // Mesa
   'project-project03': '#91dfd5', // FundSeeder
   'project-project04': '#6c4974', // Flying Axes

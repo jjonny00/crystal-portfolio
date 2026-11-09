@@ -9,7 +9,7 @@
 //   ----------------------------------------------------------------
 //   <- Previous · <name>                              View All Work ->
 //
-// In the facet map's order (Slipstream, Mesa, FundSeeder, Flying Axes, Forest
+// In the facet map's order (Second Sentence, Mesa, FundSeeder, Flying Axes, Forest
 // Giant, GE), wrapping round at both ends. Each project link goes to that
 // project's preview, as the facet map's index does (the host closes the case
 // study and moves the scene on); View All Work goes where the nav's Work does.

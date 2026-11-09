@@ -26,7 +26,9 @@ const SERIF = "'IvyPresto Display', Georgia, 'Times New Roman', serif";
 
 // Art per card: the case study hero where there is one, else the project preview.
 const CARDS = [
-  { slug: 'slipstream', title: 'SLIPSTREAM', subtitle: 'VR Combat Prototype · Unreal Engine', art: 'public/assets/projects/experimental-interactions.jpg', accent: '#873cff' },
+  // Replaced Slipstream in the first slot (Nov 2026). public/og/slipstream.jpg
+  // stays, unreferenced, for anything that cached it.
+  { slug: 'secondsentence', title: 'SECOND SENTENCE', subtitle: 'Development Log', art: 'public/assets/projects/experimental-interactions.jpg', accent: '#873cff' },
   { slug: 'mesa', title: 'MESA', subtitle: 'How Turns Create Tension', art: 'src/caseStudies/mesa/assets/hero.webp', accent: '#EAFF00' },
   { slug: 'fundseeder', title: 'FUNDSEEDER', subtitle: 'Designing the Ladder', art: 'public/assets/projects/fundseeder.webp', accent: '#58E0B2' },
   { slug: 'flying-axes', title: 'FLYING AXES', subtitle: 'Making Room for Play', art: 'src/caseStudies/flying-axes/assets/hero.webp', accent: '#ce2632' },

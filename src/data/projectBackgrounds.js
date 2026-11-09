@@ -16,8 +16,8 @@ export const projectBackgrounds = {
   },
   // neutral keys in the same order as projects.js
   project01: {
-    colorA: '#004d26',
-    colorB: '#2e1851'
+    colorA: '#7A1FFF',
+    colorB: '#6E2A3E'
   },
   project02: {
     colorA: '#16283e',

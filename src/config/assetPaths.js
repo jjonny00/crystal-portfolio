@@ -86,7 +86,7 @@ const PROJECT_FACE_MASK_FILES = {
   project02: 'project05-artwork-mask.png', // object project05 — Forest Giant
   project03: 'project03-artwork-mask.png', // object project03 — FundSeeder
   project04: 'project04-artwork-mask.png', // object project04 — Flying Axes
-  project05: 'project01-artwork-mask.png', // object project01 — Slipstream
+  project05: 'project01-artwork-mask.png', // object project01 — Second Sentence (Slipstream's slot until Nov 2026)
   project06: 'project02-artwork-mask.png', // object project02 — Mesa
 };
 

@@ -621,6 +621,13 @@ function App() {
   const [activeProjectId, setActiveProjectId] = useState(
     caseStudyDeepLink ? initialRoute.projectId : null
   );
+  // The page within the open case study: a devlog entry ('devlog/<slug>'), or
+  // null for the case study itself (the devlog's archive). Set on open, moved by
+  // the case study's own links and by Back/Forward; it outlives a close, so the
+  // layer does not change page while it fades.
+  const [caseStudySubpath, setCaseStudySubpath] = useState(
+    caseStudyDeepLink ? initialRoute.subpath ?? null : null
+  );
   const viewModeRef = useRef(viewMode);
   viewModeRef.current = viewMode;
 
@@ -1035,10 +1042,13 @@ function App() {
     });
   }, []);
 
-  const handleOpenCaseStudy = useCallback((projectId) => {
+  // `subpath` opens it on a page of its own (Forward onto a devlog entry); the
+  // project's links and its fragment open the case study itself.
+  const handleOpenCaseStudy = useCallback((projectId, subpath = null) => {
     if (!projectId) return;
     setOverlayExitMs(CASE_STUDY_EXIT_MS);
     setActiveProjectId(projectId);
+    setCaseStudySubpath(subpath);
     setViewMode('caseStudy');
   }, []);
 
@@ -1163,8 +1173,13 @@ function App() {
 
   // The way on from the end of a case study (NextProjectSection): a project's
   // preview, as the facet map's index goes, or All Work, as the nav's Work.
+  // ...and between the case study's own pages (a devlog's archive and entries).
   const caseStudyNavigation = useMemo(
-    () => ({ onSelectProject: handleFacetMapProjectSelect, onViewAllWork: handleWorkClick }),
+    () => ({
+      onSelectProject: handleFacetMapProjectSelect,
+      onViewAllWork: handleWorkClick,
+      onNavigateSubpath: setCaseStudySubpath,
+    }),
     [handleFacetMapProjectSelect, handleWorkClick]
   );
 
@@ -1175,8 +1190,10 @@ function App() {
     settledSection,
     caseStudyOpen,
     activeProjectId,
+    caseStudySubpath,
     onOpenCaseStudy: handleOpenCaseStudy,
     onCloseCaseStudy: closeCaseStudy,
+    onCaseStudySubpathChange: setCaseStudySubpath,
     onNavigate: navigateFromHistory,
   });
 
@@ -1678,6 +1695,7 @@ function App() {
         arrivalExit={arrivalExit}
         exitMs={overlayExitMs}
         navigation={caseStudyNavigation}
+        subpath={catalogOpen ? null : caseStudySubpath}
       />
 
 

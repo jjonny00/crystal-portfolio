@@ -1,11 +1,51 @@
 # Netlify build and serving rules.
 #
-# Routing needs no rules here. scripts/prerender.mjs writes a real file for every
-# route (work/mesa.html, about.html, ...), which Pretty URLs (on by default)
-# serves at /work/mesa with no redirect, and dist/404.html is served, with a 404
-# status, for anything else. A catch-all "/* /index.html 200" rewrite would turn
-# every unknown URL into a soft 404, which is exactly what search engines
-# penalise, so there deliberately isn't one.
+# Routing needs almost no rules here. scripts/prerender.mjs writes a real file
+# for every route (work/mesa.html, about.html, ...), which Pretty URLs (on by
+# default) serves at /work/mesa with no redirect, and dist/404.html is served,
+# with a 404 status, for anything else. A catch-all "/* /index.html 200" rewrite
+# would turn every unknown URL into a soft 404, which is exactly what search
+# engines penalise, so there deliberately isn't one. The rules below are the
+# exceptions, each for one URL.
+
+# Slipstream held the first project slot until Second Sentence replaced it
+# (Nov 2026). Its URL moves to the project now in that slot, permanently, so
+# links and search results follow. (routes.js does the same on the client.)
+[[redirects]]
+  from = "/work/slipstream"
+  to = "/work/secondsentence"
+  status = 301
+
+# The devlog's archive is the project's own URL; /devlog on its own is a
+# natural guess at it.
+[[redirects]]
+  from = "/work/secondsentence/devlog"
+  to = "/work/secondsentence"
+  status = 301
+
+# The devlog's entries are files in a folder named after the project
+# (work/secondsentence/devlog/<entry>.html), beside the project's own page
+# (work/secondsentence.html). Pin the project's URL to its file, so the folder
+# of the same name is never what answers it. A 200 rewrite only applies where no
+# file matches the path, and a folder is not a file.
+[[redirects]]
+  from = "/work/secondsentence"
+  to = "/work/secondsentence.html"
+  status = 200
+
+# The devlog's RSS feed.
+[[headers]]
+  for = "/work/*/feed.xml"
+  [headers.values]
+    Content-Type = "application/rss+xml; charset=utf-8"
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Devlog media (public/media/devlog/<entry>/), copied in unhashed like
+# public/assets/: a day, then revalidate.
+[[headers]]
+  for = "/media/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, must-revalidate"
 
 [build]
   command = "npm run build"

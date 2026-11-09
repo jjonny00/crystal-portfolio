@@ -6,6 +6,7 @@
 
 import { getProjectBySlug } from '../navigation/routes';
 import { NAVIGATION_DESTINATIONS } from '../navigation/navigationIntent';
+import { getEntryBySlug } from '../devlog/entries';
 import {
   DEFAULT_SHARE_IMAGE,
   PERSON,
@@ -47,6 +48,65 @@ const websiteNode = () => ({
 
 const graph = (...nodes) => ({ '@context': 'https://schema.org', '@graph': nodes });
 
+/** A devlog's RSS feed, written by the prerender beside the project's page. */
+export const devlogFeedPath = (projectSlug) => `/work/${projectSlug}/feed.xml`;
+
+/**
+ * An entry's share card: its cover, cropped to 1200×630 by the prerender
+ * (scripts/prerender.mjs), so every network gets the size it expects whatever
+ * shape the cover is. Null for an entry without a local cover (a draft, or one
+ * whose cover is a remote URL), which shares the project's card instead.
+ */
+export const devlogShareImagePath = (entry) =>
+  entry?.cover?.src?.startsWith('/') ? `/og/devlog/${entry.slug}.jpg` : null;
+
+const devlogEntryMeta = (route, project, entry) => {
+  const url = absoluteUrl(route.path);
+  const projectUrl = absoluteUrl(`/work/${project.slug}`);
+  const projectName = project.label || project.title;
+  const description = entry.summary;
+  const image = absoluteUrl(devlogShareImagePath(entry) || project.seo?.image || DEFAULT_SHARE_IMAGE);
+
+  return {
+    title: `${entry.title} · ${projectName} Devlog${TITLE_SUFFIX}`,
+    description,
+    canonical: url,
+    robots: entry.draft || entry.scheduled ? 'noindex' : 'index, follow',
+    image,
+    imageAlt: entry.cover?.alt || `${projectName}: ${entry.title}`,
+    type: 'article',
+    publishedTime: entry.date,
+    modifiedTime: entry.updated || null,
+    feed: { href: devlogFeedPath(project.slug), title: `${projectName} Devlog` },
+    jsonLd: graph(
+      personNode(),
+      websiteNode(),
+      {
+        '@type': 'BlogPosting',
+        '@id': `${url}#entry`,
+        headline: entry.title,
+        description,
+        url,
+        image,
+        datePublished: entry.date,
+        dateModified: entry.updated || entry.date,
+        articleSection: entry.category,
+        author: { '@id': PERSON_ID },
+        isPartOf: { '@id': `${projectUrl}#work` },
+        mainEntityOfPage: url,
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: SITE_NAME, item: absoluteUrl('/') },
+          { '@type': 'ListItem', position: 2, name: projectName, item: projectUrl },
+          { '@type': 'ListItem', position: 3, name: entry.title, item: url },
+        ],
+      }
+    ),
+  };
+};
+
 /**
  * @param {object|null} route  parsePath() output. Null is the 404 page.
  */
@@ -71,6 +131,9 @@ export const getRouteMeta = (route) => {
     destination === NAVIGATION_DESTINATIONS.CASE_STUDY
   ) {
     const project = getProjectBySlug(route.slug);
+    const entry = getEntryBySlug(route.entrySlug);
+    if (project && entry) return devlogEntryMeta(route, project, entry);
+
     const url = absoluteUrl(route.path);
     const name = project?.label || project?.title || SITE_NAME;
     const headline = project?.seo?.title || name;
@@ -85,6 +148,7 @@ export const getRouteMeta = (route) => {
       image,
       imageAlt: `${name}: ${project?.subtitle || 'project'}`,
       type: 'article',
+      feed: project?.devlog ? { href: devlogFeedPath(project.slug), title: `${name} Devlog` } : null,
       jsonLd: graph(
         personNode(),
         websiteNode(),
@@ -182,6 +246,18 @@ export const getHeadTags = (meta) => {
   );
   if (meta.canonical) {
     tags.push({ tag: 'meta', attrs: { property: 'og:url', content: meta.canonical } });
+  }
+  if (meta.publishedTime) {
+    tags.push({ tag: 'meta', attrs: { property: 'article:published_time', content: meta.publishedTime } });
+  }
+  if (meta.modifiedTime) {
+    tags.push({ tag: 'meta', attrs: { property: 'article:modified_time', content: meta.modifiedTime } });
+  }
+  if (meta.feed) {
+    tags.push({
+      tag: 'link',
+      attrs: { rel: 'alternate', type: 'application/rss+xml', title: meta.feed.title, href: meta.feed.href },
+    });
   }
   if (meta.jsonLd) {
     tags.push({ tag: 'script', json: meta.jsonLd });

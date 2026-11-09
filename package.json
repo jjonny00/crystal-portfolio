@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "build:client": "vite build",
     "build:share-images": "node scripts/generate-share-images.mjs",
-    "build:facet-map": "node scripts/generate-facet-map.mjs"
+    "build:facet-map": "node scripts/generate-facet-map.mjs",
+    "devlog:new": "node scripts/devlog/new-entry.mjs"
   },
   "dependencies": {
     "@react-spring/three": "^9.7.3",
@@ -24,10 +25,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@mdx-js/rollup": "^3.1.1",
     "@vitejs/plugin-react": "^4.2.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
+    "remark-frontmatter": "^5.0.0",
     "sharp": "^0.33.5",
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "yaml": "^2.9.1"
   }
 }

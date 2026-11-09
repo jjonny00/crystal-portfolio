@@ -62,6 +62,12 @@ the system means adding it to the catalogue too, or it quietly starts lying.
    composes sections inside `<CaseStudyPage>`.
 3. Add one line to `src/caseStudies/registry.js`.
 
+A case study can also have pages of its own, each with a URL under the
+project's: Second Sentence's is its devlog (an archive and an entry per page,
+`docs/devlog.md`). The overlay takes a `subpath` and passes it, with the host's
+`onNavigateSubpath`, through `CaseStudyNavContext`; every other case study
+ignores it.
+
 That is the whole wiring. The project's "read the case study" CTA already routes
 through `App.jsx` → `CaseStudyOverlay`, and the module is dynamically imported,
 so an unopened case study adds nothing to the initial bundle.
@@ -127,7 +133,7 @@ section's ink with that project's fragment filled (no glow), and along a rule
 "Previous · <name>" and "View All Work" (its arrow points up: All Work is the
 level above a project). The arrows are the site's (`components/ui/Arrow`, the
 hero CTA's shape). The order is the facet map's
-(`FACET_MAP_ORDER`: Slipstream, Mesa, FundSeeder, Flying Axes, Forest Giant, GE),
+(`FACET_MAP_ORDER`: Second Sentence, Mesa, FundSeeder, Flying Axes, Forest Giant, GE),
 wrapping round at both ends, and every case study has the same block whether or
 not the projects either side have case studies of their own.
 

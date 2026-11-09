@@ -29,26 +29,40 @@ import { foregroundColorForTone, normalizeCaseStudyColors } from '../caseStudies
 import Navigation from '../components/ui/Navigation';
 import { NAVIGATION_DESTINATIONS } from '../navigation/navigationIntent';
 import { getPrerenderRoutes, getProjectBySlug, projectPath } from '../navigation/routes';
-import { getRouteMeta, renderHeadTagsHtml } from './seoMeta';
-import { PERSON, SITE_URL } from './site';
+import { devlogFeedPath, devlogShareImagePath, getRouteMeta, renderHeadTagsHtml } from './seoMeta';
+import { PERSON, SITE_NAME, SITE_URL } from './site';
+import { devlogEntries, getEntryModulePath, preloadEntryBody } from '../devlog/entries';
+import { withLatestDevlogEntry } from '../devlog/projectPreview';
 
 export { SITE_URL, getPrerenderRoutes, getRouteMeta, renderHeadTagsHtml };
+
+// For the devlog's feed and share cards (scripts/prerender.mjs).
+export { SITE_NAME, devlogEntries, devlogFeedPath, devlogShareImagePath, projects };
 
 const noop = () => {};
 
 const sentenceCase = (lines) => lines.join(' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 
-const ProjectSummary = ({ project, headingLevel: Heading = 'h2' }) => (
-  <article>
-    <Heading>
-      <a href={projectPath(project.facetKey || project.id)}>{project.label}</a>
-    </Heading>
-    <p>{project.subtitle}</p>
-    <p>{project.description}</p>
-    {project.metrics && <p>{project.metrics}</p>}
-    {project.roles && <p>{project.roles}</p>}
-  </article>
-);
+// The live preview's copy: a devlog project leads with its latest entry.
+const ProjectSummary = ({ project: record, headingLevel: Heading = 'h2' }) => {
+  const project = withLatestDevlogEntry(record);
+  return (
+    <article>
+      <Heading>
+        <a href={projectPath(project.facetKey || project.id)}>{project.label}</a>
+      </Heading>
+      <p>{project.subtitle}</p>
+      {project.latest && (
+        <p>
+          {project.latest.label}: {project.latest.title}
+        </p>
+      )}
+      <p>{project.description}</p>
+      {project.metrics && <p>{project.metrics}</p>}
+      {project.roles && <p>{project.roles}</p>}
+    </article>
+  );
+};
 
 const AboutContent = ({ headingLevel: Heading = 'h2' }) => (
   // No id="about": the live page owns that one, and both are in the DOM for a
@@ -111,15 +125,19 @@ const ProjectContent = ({ project }) => (
 
 /**
  * @param {object|null} route  a getPrerenderRoutes() entry, or null for the 404.
- * @returns {Promise<{ html: string, visible: boolean, caseStudySlug: string|null }>}
+ * @returns {Promise<{ html: string, visible: boolean, caseStudySlug: string|null, modules: string[] }>}
  *   `visible` says whether the body is shown on first paint (a case study) or
- *   kept for screen readers and crawlers only.
+ *   kept for screen readers and crawlers only. `modules` are further source
+ *   modules the page renders (a devlog entry's body), whose chunks it preloads.
  */
 export async function renderRoute(route) {
   if (route?.destination === NAVIGATION_DESTINATIONS.CASE_STUDY) {
     const project = getProjectBySlug(route.slug);
     const caseStudySlug = project.caseStudySlug;
-    await preloadCaseStudy(caseStudySlug);
+    await Promise.all([
+      preloadCaseStudy(caseStudySlug),
+      route.entrySlug ? preloadEntryBody(route.entrySlug) : null,
+    ]);
     const colors = normalizeCaseStudyColors(project.caseStudyColors);
     // The hero is tone "a", which is what the nav sits on at the top of the page.
     const navColor = foregroundColorForTone('a', colors);
@@ -133,10 +151,12 @@ export async function renderRoute(route) {
           initiallyOpen
           onClose={noop}
           arrivalExit={{ label: ARRIVAL_EXIT_LABEL, onExit: noop }}
+          subpath={route.subpath}
         />
       </>
     );
-    return { html, visible: true, caseStudySlug };
+    const entryModule = route.entrySlug ? getEntryModulePath(route.entrySlug) : null;
+    return { html, visible: true, caseStudySlug, modules: entryModule ? [entryModule.slice(1)] : [] };
   }
 
   if (route?.destination === NAVIGATION_DESTINATIONS.PROJECT) {

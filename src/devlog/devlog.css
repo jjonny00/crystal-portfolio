@@ -1,0 +1,671 @@
+/* ============================================================================
+   Devlog (Second Sentence's case study: its archive and entries)
+   ----------------------------------------------------------------------------
+   Layout only, on top of the case-study system (src/caseStudies/system/
+   caseStudy.css), whose sections, tones, media, viewer and breakpoint (767.98px)
+   this uses as they are. No colour is named here: everything resolves from the
+   section's tone (--cs-fg / --cs-bg), so the devlog is in the project's two
+   colours wherever they are set (projects.js). Face, size, weight and case come
+   from the type classes in the markup (src/styles/type.css).
+
+   Two departures from the system, both scoped to the devlog:
+   - Secondary text (captions, metadata labels) holds at least 82% of the ink
+     rather than 55%, so it keeps 4.5:1 on the project's cream.
+   - Moving between the archive and an entry swaps pages inside the open layer,
+     so the layer's entrance is not replayed; the new page's content fades in
+     briefly instead (see "Page change").
+   ========================================================================== */
+
+.dl-view {
+  /* The reading column: about 70 characters of body copy at its largest. */
+  --dl-measure: 760px;
+  /* How wide media inside an entry may run, and the archive's own width. */
+  --dl-wide: 1180px;
+  /* Space between the parts of an entry's body. */
+  --dl-flow: var(--cs-paragraph-gap);
+  --dl-flow-media: clamp(32px, 4vw, 64px);
+  --dl-ink-secondary: color-mix(in srgb, var(--cs-fg) 82%, transparent);
+}
+
+.dl-view .cs-caption,
+.dl-view .cs-meta__label {
+  color: var(--dl-ink-secondary);
+}
+
+/* The first section of each page clears the fixed site nav, as a case study's
+   hero does. */
+.dl-top {
+  padding-block-start: max(var(--cs-section-padding-block), var(--cs-nav-clearance));
+}
+
+/* Everything sits on the page edge the nav and every case study share; the
+   reading measure limits how far text runs from it, not where it starts. */
+
+.dl-eyebrow {
+  margin-bottom: clamp(16px, 2vw, 32px);
+  color: var(--dl-ink-secondary);
+}
+
+.dl-meta {
+  color: var(--dl-ink-secondary);
+}
+
+.dl-meta__status {
+  color: var(--cs-fg);
+  font-weight: 600;
+}
+
+/* A quiet link with the site's arrow: Back to Devlog. */
+.dl-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  min-block-size: 44px;
+  color: var(--cs-fg);
+  text-decoration: none;
+  transition: opacity 150ms ease;
+}
+
+.dl-text-link:hover {
+  opacity: 0.72;
+}
+
+.dl-text-link__arrow {
+  flex: none;
+  inline-size: 0.85em;
+  block-size: 0.85em;
+}
+
+/* --------------------------------------------------------------------------
+   Archive: intro
+   On the scene, like every case study's hero. Title and descriptor across the
+   top; the introduction beside the status rail, as an overview's narrative
+   sits beside its metadata.
+   -------------------------------------------------------------------------- */
+
+.dl-intro__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 989fr) minmax(0, 365fr);
+  grid-template-areas:
+    'title title'
+    'descriptor descriptor'
+    'body status';
+  column-gap: clamp(32px, 12.4vw, 214px);
+  align-items: start;
+}
+
+.dl-intro__title {
+  grid-area: title;
+  margin-bottom: clamp(8px, 1vw, 16px);
+}
+
+.dl-intro__descriptor {
+  grid-area: descriptor;
+  margin-bottom: clamp(24px, 3.2vw, 56px);
+  color: var(--dl-ink-secondary);
+}
+
+.dl-intro__body {
+  grid-area: body;
+  max-width: var(--dl-measure);
+}
+
+.dl-intro__status {
+  grid-area: status;
+  min-width: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Archive: entries
+   -------------------------------------------------------------------------- */
+
+/* The archive's sections run on from one another on the same colour, so the
+   space between them is the section padding once, not twice. */
+.dl-latest + .dl-earlier,
+.dl-earlier + .dl-about {
+  padding-block-start: 0;
+}
+
+.dl-empty {
+  max-width: var(--dl-measure);
+}
+
+/* An entry: cover, then copy. The headline's link is stretched over the whole
+   card, so the card is one target and one link. */
+.dl-card {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: clamp(14px, 1.4vw, 22px);
+}
+
+.dl-card__text {
+  display: grid;
+  justify-items: start;
+  gap: clamp(8px, 0.8vw, 12px);
+}
+
+.dl-card__title {
+  color: var(--cs-fg);
+}
+
+.dl-card__link {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.12em;
+  transition: text-decoration-color 200ms ease;
+}
+
+.dl-card__link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.dl-card__link:focus-visible {
+  outline: none;
+}
+
+.dl-card:has(.dl-card__link:focus-visible) {
+  outline: 2px solid var(--cs-fg);
+  outline-offset: 8px;
+}
+
+.dl-card__summary {
+  color: var(--dl-ink-secondary);
+}
+
+/* Hover is a nudge, never information: everything on the card is visible
+   without it. */
+.dl-card .cs-media__img {
+  transition: opacity 200ms ease;
+}
+
+@media (hover: hover) {
+  .dl-card:hover .dl-card__link {
+    text-decoration-color: currentColor;
+  }
+
+  .dl-card:hover .cs-media__img {
+    opacity: 0.88;
+  }
+}
+
+.dl-card__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-top: clamp(8px, 1vw, 16px);
+  color: var(--cs-fg);
+}
+
+.dl-card__cta-arrow {
+  inline-size: 0.85em;
+  block-size: 0.85em;
+}
+
+/* The latest entry: cover beside the copy, the copy level with its middle. */
+.dl-card--featured {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  column-gap: clamp(24px, 4vw, 72px);
+  align-items: center;
+}
+
+.dl-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(48px, 5vw, 88px) clamp(20px, 2.4vw, 40px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-more {
+  display: flex;
+  justify-content: center;
+  margin-top: clamp(40px, 4.6vw, 80px);
+}
+
+.dl-more__button {
+  min-block-size: 48px;
+  padding: 0 28px;
+  border: 1.5px solid var(--cs-fg);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cs-fg);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.dl-more__button:hover {
+  background-color: var(--cs-fg);
+  color: var(--cs-bg);
+}
+
+/* --------------------------------------------------------------------------
+   Archive: about the game
+   -------------------------------------------------------------------------- */
+
+.dl-about__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  grid-template-areas:
+    'title title'
+    'body terms';
+  column-gap: clamp(24px, 5.5vw, 100px);
+  align-items: start;
+  padding-block-start: clamp(32px, 4vw, 64px);
+  border-block-start: 1px solid color-mix(in srgb, var(--cs-fg) 25%, transparent);
+}
+
+.dl-about__title {
+  grid-area: title;
+  margin-bottom: clamp(16px, 2vw, 32px);
+}
+
+.dl-about__body {
+  grid-area: body;
+}
+
+.dl-terms {
+  grid-area: terms;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(20px, 2.4vw, 40px);
+  margin: 0;
+}
+
+.dl-terms__item {
+  display: grid;
+  align-content: start;
+  gap: 0.4em;
+}
+
+.dl-terms__name {
+  color: var(--cs-fg);
+  font-weight: 600;
+}
+
+.dl-terms__text {
+  margin: 0;
+  color: var(--dl-ink-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   Entry
+   Header, media and body share the page edge. The body is a grid whose first
+   track is the reading measure; media steps out of it across the full width,
+   up to --dl-wide.
+   -------------------------------------------------------------------------- */
+
+.dl-article__head {
+  display: grid;
+  justify-items: start;
+  max-width: var(--dl-wide);
+}
+
+.dl-article__summary {
+  max-width: var(--dl-measure);
+}
+
+.dl-article__media {
+  max-width: var(--dl-wide);
+}
+
+.dl-article__back {
+  margin-bottom: clamp(16px, 2.4vw, 40px);
+  margin-inline-start: -0.1em;
+}
+
+.dl-article__meta {
+  margin-bottom: clamp(10px, 1.2vw, 18px);
+}
+
+.dl-article__title {
+  margin-bottom: clamp(16px, 1.8vw, 28px);
+}
+
+.dl-article__title:focus {
+  outline: none;
+}
+
+.dl-article__summary {
+  color: var(--cs-fg);
+}
+
+.dl-article__media {
+  margin-block: clamp(32px, 4.4vw, 72px);
+}
+
+.dl-prose {
+  display: grid;
+  grid-template-columns:
+    [wide-start text-start] minmax(0, var(--dl-measure))
+    [text-end] minmax(0, calc(var(--dl-wide) - var(--dl-measure)))
+    [wide-end];
+}
+
+.dl-prose > * {
+  grid-column: text;
+  min-width: 0;
+}
+
+.dl-prose > * + * {
+  margin-top: var(--dl-flow);
+}
+
+/* The case-study body's own paragraph spacing would double the flow above. */
+.dl-prose > p + p {
+  margin-top: var(--dl-flow);
+}
+
+.dl-prose > .dl-media--wide,
+.dl-prose > .cs-media:not(.dl-media) {
+  grid-column: wide;
+}
+
+.dl-prose > .dl-media--full {
+  /* Edge to edge: out through the page gutter on both sides. */
+  grid-column: wide;
+  width: calc(100vw - 2 * var(--cs-bleed-inset));
+  max-width: none;
+  margin-inline-start: calc(var(--cs-bleed-inset) - var(--cs-edge));
+}
+
+.dl-prose > .cs-media,
+.dl-prose > .dl-note {
+  margin-block: var(--dl-flow-media);
+}
+
+.dl-prose > .cs-media + .cs-media,
+.dl-prose > .cs-media + .dl-note,
+.dl-prose > .dl-note + .cs-media {
+  margin-top: 0;
+}
+
+.dl-prose__heading {
+  color: var(--cs-fg);
+}
+
+.dl-prose > h2.dl-prose__heading {
+  margin-top: clamp(40px, 4.6vw, 80px);
+}
+
+.dl-prose > :is(h3, h4, h5, h6).dl-prose__heading {
+  margin-top: clamp(28px, 3vw, 48px);
+  font-weight: 600;
+}
+
+.dl-prose > :is(h2, h3, h4, h5, h6) + * {
+  margin-top: clamp(10px, 1vw, 16px);
+}
+
+.dl-prose > :first-child {
+  margin-top: 0;
+}
+
+.dl-prose blockquote {
+  margin-inline: 0;
+  padding-inline-start: clamp(16px, 1.6vw, 28px);
+  border-inline-start: 2px solid var(--cs-fg);
+  color: var(--cs-fg);
+}
+
+.dl-prose hr {
+  width: 100%;
+  height: 0;
+  margin-block: var(--dl-flow-media);
+  border: 0;
+  border-block-start: 1px solid color-mix(in srgb, var(--cs-fg) 25%, transparent);
+}
+
+/* Code: the one place a second face is right, and it is the system's own. */
+.dl-prose :not(pre) > code {
+  padding: 0.08em 0.3em;
+  border-radius: 4px;
+  background-color: color-mix(in srgb, var(--cs-fg) 10%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.86em;
+}
+
+.dl-prose pre {
+  overflow-x: auto;
+  padding: clamp(14px, 1.6vw, 24px);
+  border-radius: 8px;
+  background-color: color-mix(in srgb, var(--cs-fg) 8%, transparent);
+  color: var(--cs-fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72em;
+  line-height: 1.55;
+}
+
+.dl-prose__loading {
+  color: var(--dl-ink-secondary);
+}
+
+/* Video fills its frame, which holds the clip's shape before it loads. */
+.dl-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background-color: #000;
+}
+
+/* A design note: a rule down its side, a little of the ink behind it. */
+.dl-note {
+  display: grid;
+  gap: 0.5em;
+  padding: clamp(18px, 2vw, 32px);
+  border-inline-start: 3px solid var(--cs-fg);
+  background-color: color-mix(in srgb, var(--cs-fg) 6%, transparent);
+}
+
+.dl-note__label {
+  color: var(--dl-ink-secondary);
+}
+
+.dl-note__title {
+  color: var(--cs-fg);
+  font-weight: 600;
+}
+
+.dl-note__body {
+  color: var(--cs-fg);
+}
+
+.dl-note__body > p + p {
+  margin-top: 0.8em;
+}
+
+/* --------------------------------------------------------------------------
+   Entry: previous / next
+   -------------------------------------------------------------------------- */
+
+.dl-pager {
+  padding-block-start: 0;
+}
+
+.dl-pager__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas: 'previous next';
+  gap: clamp(20px, 3vw, 56px);
+  padding-block-start: clamp(28px, 3vw, 48px);
+  border-block-start: 1px solid color-mix(in srgb, var(--cs-fg) 25%, transparent);
+}
+
+.dl-pager__link {
+  display: grid;
+  align-content: start;
+  gap: clamp(8px, 0.8vw, 12px);
+  color: var(--cs-fg);
+  text-decoration: none;
+}
+
+.dl-pager__link--previous {
+  grid-area: previous;
+}
+
+.dl-pager__link--next {
+  grid-area: next;
+  justify-items: end;
+  text-align: end;
+}
+
+.dl-pager__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  color: var(--dl-ink-secondary);
+}
+
+.dl-pager__arrow {
+  inline-size: 1em;
+  block-size: 1em;
+}
+
+.dl-pager__title {
+  transition: opacity 150ms ease;
+}
+
+.dl-pager__link:hover .dl-pager__title {
+  opacity: 0.72;
+}
+
+.dl-pager__foot {
+  margin-top: clamp(28px, 3vw, 48px);
+  padding-block-start: clamp(12px, 1.4vw, 20px);
+  border-block-start: 1px solid color-mix(in srgb, var(--cs-fg) 25%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   Entrance
+   The layer's own entrance (caseStudy.css) fades the sections in; the devlog's
+   headline pieces rise in on its stagger, as a case study hero's do, and are
+   still on a page that arrived prerendered.
+   -------------------------------------------------------------------------- */
+
+.cs-overlay .dl-enter {
+  animation: cs-rise-in var(--cs-enter-item, 1120ms) cubic-bezier(0.2, 0.7, 0.2, 1)
+    calc(
+      var(--cs-enter-offset, 450ms) + var(--cs-enter-lead, 760ms) +
+        var(--cs-enter-step, 0) * var(--cs-enter-stagger, 180ms)
+    )
+    backwards;
+}
+
+.dl-intro__title,
+.dl-article__back {
+  --cs-enter-step: 0;
+}
+
+.dl-intro__descriptor,
+.dl-article__meta,
+.dl-article__title {
+  --cs-enter-step: 1;
+}
+
+.dl-intro__body,
+.dl-article__summary {
+  --cs-enter-step: 2;
+}
+
+.dl-intro__status,
+.dl-article__media {
+  --cs-enter-step: 3;
+}
+
+.cs-overlay[data-instant] .dl-enter {
+  animation: none;
+}
+
+/* --------------------------------------------------------------------------
+   Page change
+   Archive to entry, entry to entry, back to the archive: the layer is already
+   open, so its entrance stays put. The sections' colour is there at once (a
+   fade would show the scene, or the black behind a frozen one, through the
+   page), and only their content comes in, quickly.
+   -------------------------------------------------------------------------- */
+
+@keyframes dl-page-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.cs-overlay .dl-view[data-navigated] .cs-section,
+.cs-overlay .dl-view[data-navigated] .dl-enter {
+  animation: none;
+}
+
+.cs-overlay .dl-view[data-navigated] .cs-section > .cs-container {
+  animation: dl-page-in 260ms ease-out backwards;
+}
+
+/* --------------------------------------------------------------------------
+   Phones
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 767.98px) {
+  .dl-intro__inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'title'
+      'descriptor'
+      'body'
+      'status';
+    row-gap: 0;
+  }
+
+  .dl-intro__status {
+    margin-top: clamp(28px, 8vw, 40px);
+  }
+
+  .dl-card--featured {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: clamp(14px, 4vw, 22px);
+  }
+
+  .dl-grid {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: clamp(40px, 11vw, 56px);
+  }
+
+  .dl-about__inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'title'
+      'body'
+      'terms';
+    row-gap: clamp(20px, 6vw, 32px);
+  }
+
+  .dl-terms {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Wide media keeps to the page gutter; only "full" reaches the screen edge. */
+  .dl-prose {
+    grid-template-columns: [wide-start text-start] minmax(0, 1fr) [text-end wide-end];
+  }
+
+  .dl-pager__row {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'previous'
+      'next';
+  }
+
+  .dl-pager__link--next {
+    justify-items: start;
+    text-align: start;
+  }
+}

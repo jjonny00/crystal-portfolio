@@ -5,6 +5,7 @@ import './styles/app-frame.css';
 import LoaderV2, { loaderFontsReady } from './ui/LoaderV2';
 import { NAVIGATION_DESTINATIONS } from './navigation/navigationIntent';
 import { getProjectBySlug, parsePath } from './navigation/routes';
+import { preloadEntryBody } from './devlog/entries';
 import { capturePrerenderedScroll } from './seo/prerenderedContent';
 import { download } from './loader/downloads';
 import { trackDevModules } from './loader/devModuleProgress';
@@ -94,10 +95,14 @@ async function boot() {
   // The case study is already on screen from the prerendered HTML, and there is
   // no loader on this path. Mount once both modules are here, so the app's copy
   // renders in one pass with nothing in between.
+  // A devlog entry's body too, which is its own chunk.
   setLoaderPresentation({ shown: false });
   try {
     const { preloadCaseStudy } = await import('./caseStudies/CaseStudyOverlay');
-    await preloadCaseStudy(getProjectBySlug(route.slug)?.caseStudySlug);
+    await Promise.all([
+      preloadCaseStudy(getProjectBySlug(route.slug)?.caseStudySlug),
+      route.entrySlug ? preloadEntryBody(route.entrySlug) : null,
+    ]);
   } catch (e) {
     console.warn('Case study preload failed:', e);
   }

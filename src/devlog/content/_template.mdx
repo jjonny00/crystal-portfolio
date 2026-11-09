@@ -1,0 +1,65 @@
+---
+# The entry's headline. The project title stays SECOND SENTENCE; this is the entry's own.
+title: "__TITLE__"
+# Its URL: /work/secondsentence/devlog/<slug>. Lowercase, hyphens. Don't change it once published.
+slug: "__SLUG__"
+# Publication date, in quotes. The newest published date becomes the latest entry
+# everywhere (project preview, archive). A future date waits for a deploy on or after it.
+date: "__DATE__"
+# One short label, shown above the headline: Systems Design, Movement, Combat, Art, Tools...
+category: "__CATEGORY__"
+# One or two sentences. The preview, the archive card, search results and share cards use it.
+summary: "__SUMMARY__"
+# Required once published: an image in public/, e.g. /media/devlog/<slug>/cover.webp.
+# It is the card, the article's lead image (or the video's poster) and the share card.
+# cover: "/media/devlog/__SLUG__/cover.webp"
+# coverAlt: "What the cover shows, for someone who can't see it."
+# Optional: a clip to lead the article instead of the cover image (the cover is its poster).
+# video: "/media/devlog/__SLUG__/lead.mp4"
+# Optional: the date of a meaningful revision, in quotes.
+# updated: "YYYY-MM-DD"
+# true keeps it off the live site (it still shows on `npm run dev`, marked Draft).
+draft: true
+---
+
+Write the entry in plain Markdown. Paragraphs, **bold**, _italic_, [links](https://example.com),
+lists and > quotes all work as you'd expect.
+
+## A section heading
+
+More of the entry.
+
+{/*
+  Media goes in public/media/devlog/__SLUG__/. Every path below must point at a
+  real file there, or the build stops and says which one is missing.
+
+  An image on a line of its own becomes an enlargeable figure; the text in
+  quotes is its caption:
+
+  ![What the image shows](/media/devlog/__SLUG__/example.webp "Optional caption.")
+
+  Richer media, available in every entry without an import. Uncomment to use.
+
+  <GameplayVideo
+    src="/media/devlog/__SLUG__/clip.mp4"
+    poster="/media/devlog/__SLUG__/clip.webp"
+    title="What happens in the clip"
+    caption="Optional caption."
+    loop
+  />
+
+  <MediaFigure src="/media/devlog/__SLUG__/image.webp" alt="..." caption="..." size="text" />
+
+  <MediaGallery
+    layout="2-up"
+    caption="One caption for the set."
+    items={[
+      { src: '/media/devlog/__SLUG__/a.webp', alt: '...', aspectRatio: '16 / 9' },
+      { src: '/media/devlog/__SLUG__/b.webp', alt: '...', aspectRatio: '16 / 9' },
+    ]}
+  />
+
+  <DesignNote kind="decision" title="One line on what was decided">
+    Why, in a few sentences.
+  </DesignNote>
+*/}

@@ -10,6 +10,7 @@ npm run dev      # start Vite dev server
 npm run build    # production build + prerender (also the de facto type/compile check)
 npm run build:share-images  # regenerate public/og/*.jpg + favicons (commit the output)
 npm run build:facet-map     # regenerate src/data/facetMap.json from the fragment GLBs (commit the output; `build` fails if it is stale)
+npm run devlog:new -- "Title"  # start a Second Sentence devlog entry (a draft) from the template; see docs/devlog.md
 npm run preview  # serve the dist/ build for smoke testing
 ```
 
@@ -84,6 +85,10 @@ The moves between the index, the selected projects, their case studies and About
 ### Case studies
 
 `src/caseStudies/` is a self-contained system, intentionally decoupled from the crystal/facet/project-background rendering. A project opts in with `caseStudySlug` + `caseStudyColors` (exactly two colours) in `projects.js`; `src/caseStudies/registry.js` maps the slug to a dynamically-imported module, and `CaseStudyOverlay` (mounted from `App.jsx` when `viewMode === 'caseStudy'`) renders it as a full-page layer over the portfolio without touching the scroll/camera state underneath. Reusable sections, the media/lightbox abstraction, and all responsive CSS live in `src/caseStudies/system/`; project content lives in `src/caseStudies/<slug>/`. Read `docs/case-study-system.md` before adding a case study or changing a section component — in particular, case studies should not need their own breakpoint CSS, and only `MediaViewerLightbox.jsx` may import the lightbox library. `CaseStudyPage` ends every case study with `NextProjectSection` (next and previous project in the facet map's order, and View All Work), which learns the project and App's handlers from `CaseStudyNavContext`; a case study never composes it.
+
+### Second Sentence devlog
+
+Second Sentence (`project01`, Slipstream's slot until Nov 2026; `/work/slipstream` redirects) has a devlog as its case study: the archive at `/work/secondsentence`, entries at `/work/secondsentence/devlog/<slug>`, which the overlay renders from its `subpath` (`CaseStudyNavContext`; history depth in `useRouteSync`). Entries are MDX in `src/devlog/content/entries/`, discovered and validated at build time by `scripts/devlog/vitePlugin.mjs` (`virtual:devlog`; drafts and future dates left out of production builds). `src/devlog/entries.js` is the only list; the project's preview takes its latest entry through `projectPreview.js`, so `projects.js` never holds entry copy. `npm run devlog:new -- "Title"` starts one. Read `docs/devlog.md` before changing it.
 
 ### Facet map
 

@@ -16,6 +16,14 @@
  *              wash would paint over the very thing the hero is sitting on.
  */
 const CASE_STUDY_MODULES = {
+  // Second Sentence's case study is its devlog: the archive, and each entry at
+  // a subpath of the project's URL (src/devlog/, docs/devlog.md). Its intro
+  // paints no background of its own, as every hero here does, so the crystal
+  // shows through it.
+  secondsentence: {
+    load: () => import('./secondsentence/SecondSentenceCaseStudy.jsx'),
+    entry: 'reveal',
+  },
   mesa: {
     load: () => import('./mesa/MesaCaseStudy.jsx'),
     entry: 'reveal',

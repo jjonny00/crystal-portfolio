@@ -148,7 +148,7 @@ what the scene draws, confirmed by the lookups above, `projectSceneKeyById` in
 
 | # | Project | Scene key | GLB |
 |---|---|---|---|
-| 01 | Slipstream | leadership | Project05.glb |
+| 01 | Second Sentence | leadership | Project05.glb |
 | 02 | Mesa | exploration | Project06.glb |
 | 03 | FundSeeder | craft | Project03.glb |
 | 04 | Flying Axes | system | Project04.glb |

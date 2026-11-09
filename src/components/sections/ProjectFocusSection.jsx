@@ -10,6 +10,7 @@ import { getScrimTone } from '../../legibility/scrimTone';
 import { projectPath } from '../../navigation/routes';
 import { inPageLinkHandler } from '../../navigation/linkClick';
 import { projectCardColors } from '../../lib/projectCardColors';
+import { withLatestDevlogEntry } from '../../devlog/projectPreview';
 
 // The body copy's ink is authored, not measured: every project names it in
 // projects.js under `scrim.darkText`, and that answer holds at every screen size.
@@ -78,7 +79,12 @@ const ProjectFocusSection = ({
   if (!project) return null;
 
   const headlineColor = project.headlineColor || project.color || '#ffffff';
-  const displayProject = isMobile && project.mobile ? { ...project, ...project.mobile } : project;
+  // A devlog project (Second Sentence) leads with its latest published entry:
+  // its summary for the description, and its headline on a line of its own.
+  // The project's title, descriptor and CTA are untouched (devlog/projectPreview.js).
+  const displayProject = withLatestDevlogEntry(
+    isMobile && project.mobile ? { ...project, ...project.mobile } : project
+  );
   const contentWidth = isMobile ? '100%' : 'min(34vw, 640px)';
   // One recipe, both screen sizes. `darkText` on a project swaps this to the
   // near-black ink; it governs the body copy and nothing else. The CTA keeps the
@@ -258,6 +264,36 @@ const ProjectFocusSection = ({
             {displayProject.subtitle}
           </animated.p>
 
+          {/* The latest devlog entry: "Latest Entry · <date>" over its
+              headline, an editorial line under the project's own identity,
+              never in place of it. Comes in with the body copy, each line
+              carrying the spring itself so its blend stays on the page (see
+              the note at the top). */}
+          {displayProject.latest && (
+            <animated.p
+              className={`type-caption-caps ${copyClass}`}
+              style={{
+                ...bodySpring,
+                margin: isMobile ? 'calc(-0.3rem * var(--project-card-v)) 0 0' : '0 0 8px',
+                color: isMobile ? COPY_INK(cardFg, 0.7) : COPY_INK(copyInk, 0.6)
+              }}
+            >
+              {displayProject.latest.label}
+            </animated.p>
+          )}
+          {displayProject.latest && (
+            <animated.p
+              className={`type-headline-sm ${copyClass}`}
+              style={{
+                ...bodySpring,
+                margin: isMobile ? 'calc(-0.5rem * var(--project-card-v)) 0 0' : '0 0 16px',
+                color: isMobile ? cardFg : COPY_INK(copyInk, 0.95)
+              }}
+            >
+              {displayProject.latest.title}
+            </animated.p>
+          )}
+
           <animated.p
             className={bodyClass}
             style={{ ...bodySpring, ...bodyStyle, margin: 0 }}
@@ -325,8 +361,10 @@ const ProjectFocusSection = ({
               <SquircleSurface />
               {/* The hero CTA's phone size where the row has room for it;
                   narrower, every project's label comes down together, to what
-                  fits the longest ("Designing Around Essence", 11.5 times its
-                  size across) in the pill's width (cqi, project-card.css). */}
+                  fits the longest in the pill's width (cqi, project-card.css).
+                  Sized for "Designing Around Essence", 11.5 times its size
+                  across; today's longest, "How Turns Create Tension", is a
+                  little narrower (measured Nov 2026). */}
               <span style={{ ...ctaTypeStyle(true), fontSize: 'min(21px, 8.6cqi)' }}>
                 {displayProject.cta}
               </span>

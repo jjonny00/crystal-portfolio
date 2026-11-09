@@ -4,7 +4,8 @@
 // src/seo/entry-server.jsx (dist-ssr/). Writes one HTML file per route, each
 // with its own <head> (title, description, canonical, share card, structured
 // data) and its readable body already in the markup, plus sitemap.xml,
-// robots.txt and 404.html.
+// robots.txt, 404.html, and for the devlog its RSS feed and each published
+// entry's share card.
 //
 // Files are flat (work/mesa.html, not work/mesa/index.html): Netlify's Pretty
 // URLs serve those at /work/mesa with no redirect, which keeps every URL
@@ -79,7 +80,7 @@ const caseStudyShellAssets = ['App', 'CaseStudyOverlay'].reduce((assets, name) =
 
 const buildPage = async (route) => {
   const meta = entry.getRouteMeta(route);
-  const { html, visible, caseStudySlug } = await entry.renderRoute(route);
+  const { html, visible, caseStudySlug, modules = [] } = await entry.renderRoute(route);
 
   let head = entry.renderHeadTagsHtml(meta);
   if (caseStudySlug) {
@@ -88,6 +89,11 @@ const buildPage = async (route) => {
     const { css, js } = collectChunkAssets(chunkKey, new Set(), {
       css: new Set(caseStudyShellAssets.css),
       js: new Set(caseStudyShellAssets.js),
+    });
+    // A devlog entry's body is a chunk of its own.
+    modules.forEach((moduleKey) => {
+      if (!manifest[moduleKey]) fail(`no chunk in the manifest for "${moduleKey}".`);
+      collectChunkAssets(moduleKey, new Set(), { css, js });
     });
     const links = [
       ...[...css].filter((href) => !entryAssets.css.has(href)).map((href) => `<link rel="stylesheet" crossorigin href="${href}" />`),
@@ -136,12 +142,94 @@ const sitemap = [
   '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
   ...routes
     .filter((route) => route.indexable)
-    .map((route) => `  <url><loc>${SITE_URL}${route.path}</loc><lastmod>${today}</lastmod></url>`),
+    .map((route) => `  <url><loc>${SITE_URL}${route.path}</loc><lastmod>${route.lastmod || today}</lastmod></url>`),
   '</urlset>',
   '',
 ].join('\n');
 await writeFile(resolve(distDir, 'sitemap.xml'), sitemap);
 written.push('sitemap.xml');
+
+// --- the devlog: its feed and its entries' share cards ---------------------
+//
+// Only what this build publishes (src/devlog/entries.js): drafts and scheduled
+// entries are not in the list, so they are in neither.
+
+const xml = (value) =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+const rfc822 = (isoDate) => new Date(`${isoDate}T00:00:00Z`).toUTCString();
+
+// Each entry's cover, cropped to the 1200×630 every network expects. Written
+// first so the feed can give each its size.
+const shareImageBytes = new Map();
+if (entry.devlogEntries.some((item) => entry.devlogShareImagePath(item))) {
+  const { default: sharp } = await import('sharp');
+  for (const item of entry.devlogEntries) {
+    const target = entry.devlogShareImagePath(item);
+    if (!target) continue;
+    const outFile = resolve(distDir, `.${target}`);
+    await mkdir(dirname(outFile), { recursive: true });
+    const { size } = await sharp(resolve(root, 'public', `.${item.cover.src}`))
+      .resize(1200, 630, { fit: 'cover', position: 'attention' })
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toFile(outFile);
+    shareImageBytes.set(target, size);
+    written.push(target.slice(1));
+  }
+}
+
+for (const project of entry.projects.filter((item) => item.devlog)) {
+  const projectUrl = `${SITE_URL}/work/${project.slug}`;
+  const feedPath = entry.devlogFeedPath(project.slug);
+  // A DEVLOG_DRAFTS build (a preview) renders drafts, but never syndicates them.
+  const feedEntries = entry.devlogEntries.filter((item) => !item.draft && !item.scheduled);
+  const items = feedEntries.map((item) => {
+    const url = `${projectUrl}/devlog/${item.slug}`;
+    const image = entry.devlogShareImagePath(item);
+    return [
+      '    <item>',
+      `      <title>${xml(item.title)}</title>`,
+      `      <link>${url}</link>`,
+      `      <guid isPermaLink="true">${url}</guid>`,
+      `      <pubDate>${rfc822(item.date)}</pubDate>`,
+      `      <category>${xml(item.category)}</category>`,
+      `      <description>${xml(item.summary)}</description>`,
+      image
+        ? `      <enclosure url="${SITE_URL}${image}" type="image/jpeg" length="${shareImageBytes.get(image) || 0}" />`
+        : null,
+      '    </item>',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  });
+  const latest = feedEntries[0];
+  const feed = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">',
+    '  <channel>',
+    `    <title>${xml(`${project.label} Devlog`)}</title>`,
+    `    <link>${projectUrl}</link>`,
+    `    <atom:link href="${SITE_URL}${feedPath}" rel="self" type="application/rss+xml" />`,
+    `    <description>${xml(project.seo?.description || project.description)}</description>`,
+    '    <language>en</language>',
+    `    <copyright>${xml(entry.SITE_NAME)}</copyright>`,
+    latest ? `    <lastBuildDate>${rfc822(latest.updated || latest.date)}</lastBuildDate>` : null,
+    ...items,
+    '  </channel>',
+    '</rss>',
+    '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+  const feedFile = resolve(distDir, `.${feedPath}`);
+  await mkdir(dirname(feedFile), { recursive: true });
+  await writeFile(feedFile, feed);
+  written.push(feedPath.slice(1));
+}
 
 const robots = [
   'User-agent: *',

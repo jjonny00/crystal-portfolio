@@ -1,0 +1,73 @@
+---
+title: "Designing the Remnant Suit"
+slug: "designing-the-remnant-suit"
+date: "2026-11-08"
+category: "Systems Design"
+summary: "The first Echo Suit turns movement into positioning: armed, qualifying movement leaves explosive copies of the player behind."
+draft: true
+---
+
+{/*
+  SAMPLE ENTRY. Written to exercise the devlog (several media and design
+  notes), not for publication. The rules below are the suit's established
+  design; the media are placeholders; everything in [brackets] is for you to
+  write.
+*/}
+
+The Remnant Suit is the first Echo Suit in the prototype. While it is armed, qualifying movement actions generate Remnants: temporary explosive copies of the player.
+
+<GameplayVideo
+  title="Remnants left behind during traversal"
+  caption="[Placeholder. A clip of Remnants being left and detonated.]"
+  placeholder="Gameplay clip: Remnants during traversal"
+/>
+
+## Armed or offline
+
+The suit has two states, and the player chooses between them. Offline, traversal is just traversal: no Remnants. Armed, qualifying movement actions can generate them.
+
+[Which movement actions qualify, and why those.]
+
+## The rules
+
+- The suit sustains up to three active Remnants.
+- Each Remnant lasts five seconds unless it is triggered earlier.
+- Detonation or expiration releases its sustain slot immediately.
+- Full capacity never disables the movement ability underneath.
+
+<DesignNote kind="constraint" title="Full capacity never blocks movement">
+  The suit adds to movement; it never takes movement away. With three Remnants
+  active, the player can still perform every movement action. They just don't
+  generate a fourth Remnant until a slot is free.
+</DesignNote>
+
+## Reading the suit
+
+<MediaFigure
+  placeholder="Suit display: active Remnants and their remaining lifetimes"
+  caption="[Placeholder. The suit display.]"
+  aspectRatio="16 / 9"
+/>
+
+The suit's display shows which Remnants are active and how long each has left. It does not show a battery percentage or an ammunition count.
+
+<DesignNote kind="decision" title="Lifetimes, not a battery">
+  [Why the display shows active Remnants and their remaining lifetimes rather
+  than a charge or ammunition count.]
+</DesignNote>
+
+<MediaGallery
+  layout="3-up"
+  caption="[Placeholder. Three frames of a Remnant: left, waiting, detonated.]"
+  items={[
+    { key: 'left', placeholder: 'Remnant left behind', aspectRatio: '4 / 3' },
+    { key: 'waiting', placeholder: 'Remnant waiting', aspectRatio: '4 / 3' },
+    { key: 'detonated', placeholder: 'Remnant detonated', aspectRatio: '4 / 3' },
+  ]}
+/>
+
+## Open questions
+
+[What the prototype still has to answer about the suit.]
+
+Earlier: [why third person comes first](/work/secondsentence/devlog/why-third-person-comes-first).

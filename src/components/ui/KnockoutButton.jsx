@@ -16,7 +16,7 @@
 // What that costs is the size of the window, and it is not the same everywhere:
 // the veil and the fill have to sit far apart in luminance, so a bright accent
 // leaves room for a real window and a dark one does not. MESA's #EAFF00 runs a
-// veil at 0.57 — nearly half the scene reads through. SLIPSTREAM's #873cff needs
+// veil at 0.57 — nearly half the scene reads through. SECOND SENTENCE's #873cff needs
 // 0.95 and is a window in name only. That is arithmetic, not a setting: at a
 // luminance of 0.156 there is no veil colour that clears 4.5:1 with more of the
 // scene showing. Brighter accents would buy bigger windows.
