@@ -71,6 +71,16 @@
     --app-corner-radius: clamp(24px, 8.2vw, 56px);
   }
 
+  /* A squircle hugs the corner much more tightly than an arc of the same
+     radius, so where it is drawn (Chromium, and Safari since it shipped
+     corner-shape) the radius doubles to read as round as the arc. */
+  @supports (corner-shape: squircle) {
+    .app-frame,
+    .app-rim {
+      --app-corner-radius: clamp(48px, 16.4vw, 112px);
+    }
+  }
+
   /* The page's content stops where the frame does. The scroll container is
      100vh, which on iOS is the large viewport, but the frame ends at 100svh, so
      content ran on below it, under Safari's toolbar: a project's solid card

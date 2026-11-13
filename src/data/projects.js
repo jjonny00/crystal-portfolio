@@ -53,8 +53,8 @@ export const projects = [
     // The devlog's two tones (see docs/case-study-system.md): A and B swap as
     // ink and ground from section to section.
     caseStudyColors: {
-      a: '#F4F9FF',
-      b: '#130715'
+      a: '#D5E9E7',
+      b: '#152C30'
     },
     // The selected-project preview reads its headline, summary and date from
     // the latest published devlog entry (src/devlog/projectPreview.js).
@@ -75,7 +75,7 @@ export const projects = [
       darkText: false,
       color: '#3c4375'
     },
-    color: '#F4F9FF',
+    color: '#E3EFEC',
     headlineColor: '#F4F9FF',
     // The fragment's artwork. Kept from the slot's previous project, since it
     // is part of the scene rather than of the project's story.

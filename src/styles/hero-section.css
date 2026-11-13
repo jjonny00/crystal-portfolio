@@ -244,6 +244,55 @@
     margin-top: clamp(1.1rem, 3.5svh, 1.8rem);
     max-inline-size: min(100%, 40rem);
     margin-inline: 0;
+    position: relative;
+    /* Its own group, so the veil below stays between the scene and the copy
+       whatever the spring leaves on this wrapper once the intro settles. */
+    isolation: isolate;
+  }
+
+  /* The body copy sits over the crystal on a phone, and a highlight passing
+     behind a line of 87% cream takes the line with it. A veil holds it: the
+     scene's own deep blue-violet, full bleed so it has no side edges, at a
+     third strength under the lines and easing out above and below them on a
+     smoothstep, so no edge is ever drawn. The dark scene barely changes under
+     it; only a highlight behind the copy is taken down. It is on the copy's
+     own wrapper, so it arrives, fades and scrolls with the copy. Strength:
+     --hero-veil. */
+  .hero-section__body-block::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset-block: -3rem;
+    inset-inline: calc(-1 * var(--hero-gutter, var(--page-edge)));
+    pointer-events: none;
+    background-color: rgb(10 8 26 / var(--hero-veil, 0.34));
+    /* The ramps are the 3rem the veil reaches past the copy, so every line
+       sits on the full strength. */
+    --hero-veil-ramp: linear-gradient(
+      to bottom,
+      transparent 0,
+      rgb(0 0 0 / 0.07) 0.5rem,
+      rgb(0 0 0 / 0.26) 1rem,
+      rgb(0 0 0 / 0.5) 1.5rem,
+      rgb(0 0 0 / 0.74) 2rem,
+      rgb(0 0 0 / 0.93) 2.5rem,
+      #000 3rem,
+      #000 calc(100% - 3rem),
+      rgb(0 0 0 / 0.93) calc(100% - 2.5rem),
+      rgb(0 0 0 / 0.74) calc(100% - 2rem),
+      rgb(0 0 0 / 0.5) calc(100% - 1.5rem),
+      rgb(0 0 0 / 0.26) calc(100% - 1rem),
+      rgb(0 0 0 / 0.07) calc(100% - 0.5rem),
+      transparent 100%
+    );
+    -webkit-mask-image: var(--hero-veil-ramp);
+    mask-image: var(--hero-veil-ramp);
+  }
+
+  /* Full-strength ink on a phone: at 87% a highlight behind the copy shows
+     through the glyphs themselves. */
+  .hero-section__body-copy {
+    color: rgb(255 250 230 / 0.96);
   }
 
   /* Flush left even though the copy above it is centred: the CTA's arrow is what
