@@ -325,10 +325,3 @@
   font-size: 0.8em;
   font-variant-numeric: tabular-nums;
 }
-
-/* The note that the diagram is drawn after the fact, under the rail's caption. */
-.gec-note {
-  display: block;
-  margin-top: 0.35em;
-  font-style: italic;
-}

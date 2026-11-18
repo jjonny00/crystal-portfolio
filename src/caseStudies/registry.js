@@ -30,26 +30,28 @@ const CASE_STUDY_MODULES = {
   },
   fundseeder: {
     load: () => import('./fundseeder/FundSeederCaseStudy.jsx'),
-    // Its hero, tier ladder and identity sections paint no background of their
-    // own — they show the crystal — so nothing may cover the scene on the way in.
+    // Its hero and "The Next Rival Matters More Than First Place" paint no
+    // background — they show the crystal — so nothing may cover the scene on
+    // the way in.
     entry: 'reveal',
   },
   'flying-axes': {
     load: () => import('./flying-axes/FlyingAxesCaseStudy.jsx'),
-    // Its hero and "Give Coaches Room" paint no background — they show the
+    // Its hero and "Each Venue Could Run Independently" paint no background — they show the
     // crystal — so nothing may cover the scene on the way in.
     entry: 'reveal',
   },
   'ge-experience-centers': {
     load: () => import('./ge-experience-centers/GeExperienceCentersCaseStudy.jsx'),
-    // Its hero and "Let the Conversation Shape the Space" paint no background —
+    // Its hero and "Give Hosts Control of the Space" paint no background —
     // they show the crystal — so nothing may cover the scene on the way in.
     entry: 'reveal',
   },
   'forest-giant': {
     load: () => import('./forest-giant/ForestGiantCaseStudy.jsx'),
-    // Its hero and "Building the Practice Together" paint no background — they
-    // show the crystal — so nothing may cover the scene on the way in.
+    // Its hero and "Give Project Leads Something They Can Use" paint no
+    // background — they show the crystal — so nothing may cover the scene on
+    // the way in.
     entry: 'reveal',
   },
   // Not a project. A catalogue of every section component and variation, opened

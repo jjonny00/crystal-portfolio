@@ -4,10 +4,15 @@
 // outcomes, media) and left as prose arrays everywhere else — the page itself is
 // composed in MesaCaseStudy.jsx, not described here.
 //
+// Copy is the finishing pass (November 2026): six sections, the
+// returning-player point folded into the ending. The power key is shown as its
+// Steal row only: the full key and the ability cards disagree on Draw and
+// Freeze, so the whole key waits on the shipped build or final balance sheet.
+//
 // `**bold**` is supported inline. Media entries without a `src` render the
 // system placeholder at the correct size; supplying `src`/`fullSrc` later is the
 // only change needed to drop the real asset in.
-import heroImage from './assets/hero.webp';
+import openingBoard from './assets/opening-board.webp';
 import prototype01 from './assets/prototype01.webp';
 import prototype02 from './assets/prototype02.webp';
 import prototype03 from './assets/prototype03.webp';
@@ -16,17 +21,10 @@ import oneTurn02 from './assets/one-turn/one-turn-02.webp';
 import oneTurn03 from './assets/one-turn/one-turn-03.webp';
 import oneTurn04 from './assets/one-turn/one-turn-04.webp';
 import oneTurn05 from './assets/one-turn/one-turn-05.webp';
-import previewmesa from './assets/preview-mesa.webp';
 import tightOpenTight01 from './assets/tight-open-tight01.webp';
 import tightOpenTight02 from './assets/tight-open-tight02.webp';
 import tightOpenTight03 from './assets/tight-open-tight03.webp';
-import powerKey from './assets/power-key.webp';
-import powerBomb from './assets/power-cards/bomb.webp';
-import powerDestroy from './assets/power-cards/destroy.webp';
-import powerShuffle from './assets/power-cards/shuffle.webp';
-import powerDraw from './assets/power-cards/draw.webp';
-import powerFreeze from './assets/power-cards/freeze.webp';
-import powerSteal from './assets/power-cards/steal.webp';
+import powerKeySteal from './assets/power-key-steal.webp';
 
 export const mesaContent = {
   projectName: 'MESA',
@@ -34,25 +32,31 @@ export const mesaContent = {
 
   hero: {
     intro: [
-      'Mesa is an asynchronous competitive strategy game built around one idea: **turns should create tension**.',
-      "Players draw from the same board, so every move can advance their own strategy or disrupt their opponent's. Powerful abilities deal less damage, forcing a continual choice between pressing the advantage now and controlling what happens next.",
-      'I originated the concept and led the game design, creative direction, production, and delivery with a five-person team at Forest Giant.',
+      'Both players draw from the same board. Every tile you take changes what your opponent can do next. I came up with Mesa and led a five-person team from paper prototypes to an iOS launch that reached the App Store’s Top 5 Free Games and 150,000 downloads in its first week.',
     ],
+    // The opening board: one playable tile, at the peak. Its own ratio,
+    // uncropped, so the whole pyramid stays in frame.
     media: {
-      src: heroImage,
-      alt: 'Mesa running on an iPhone, held in one hand during a match.',
+      src: openingBoard,
+      alt: 'The opening Mesa board: a pyramid of hexagonal tiles in which only the tile at the peak is lit and playable, every tile beneath it dimmed.',
+      aspectRatio: '1480 / 1435',
+      caption: 'Only the tile at the peak can be played.',
     },
+    // Individual interface screens are not claimed: ownership isn't documented.
+    metadata: [
+      { label: 'Role', values: ['Game concept', 'Systems design', 'Team lead'] },
+      { label: 'Prototyping', values: ['Paper prototyping with the UI/UX designer'] },
+      { label: 'Team', values: ['Five people'] },
+      { label: 'Platform', values: ['iOS', 'Asynchronous multiplayer'] },
+      { label: 'Released', values: ['July 24, 2014'] },
+    ],
   },
 
   overview: {
-    title: 'Finding the Game Before Writing Code',
+    title: 'We Found the Game on Paper',
     body: [
-      "Mesa began as one of Forest Giant's internal Friday projects, when small teams could pitch and explore their own ideas outside client work.",
-      'The original concept was a reimagining of Memory where completing a match unlocked a power. The premise was easy to understand, but the first version was not much of a game.',
-      'We rebuilt it through physical prototyping.',
-      'The UI/UX designer and I experimented with cards, squares, circles, diamonds, and different board structures before arriving at a hexagonal tile with three colored corners. We attached printed tiles to poker chips so they could be rotated, stacked, and rearranged by hand.',
-      'The physical prototype became the complete game. We used it to design the turn structure, board layouts, powers, damage values, tile distribution, and victory conditions before development began.',
-      'Coworkers from outside the team began joining playtests voluntarily. Some returned repeatedly, looking for stronger combinations and counterplays. When people began spending their own Friday project time playing Mesa, we knew the system had enough depth to move into full production.',
+      'Mesa started as a variation on Memory. Completing a match earned you a power, but there wasn’t much to decide. Our UI/UX designer and I worked through cards, shapes, and board layouts until we had hexagonal tiles with three colored corners. We stuck the printed tiles to poker chips so we could turn them, stack them, and play whole matches by hand.',
+      'We used those matches to balance damage, powers, and the distribution of colors. When coworkers started spending their own Friday project time testing combinations against each other, we decided to build it.',
     ],
     gallery: [
       {
@@ -70,36 +74,15 @@ export const mesaContent = {
     ],
     caption:
       "From cards to stacked hex tiles, Mesa's core rules, powers, and board structure were designed and balanced in physical form before development began.",
-    metadata: [
-      {
-        label: 'Role',
-        values: ['Creator', 'Creative Direction', 'Game Design', 'Systems + UI/UX'],
-      },
-      {
-        label: 'Team',
-        values: [
-          'Product Owner / Creative Lead',
-          'UX Researcher',
-          'UI/UX Designer',
-          'Frontend Developer ×2',
-        ],
-      },
-      { label: 'Genre', values: ['Competitive Strategy'] },
-      { label: 'Mode', values: ['Asynchronous Multiplayer'] },
-      { label: 'Platform', values: ['iOS'] },
-      { label: 'Outcome', values: ['Top 5 Free Games in the U.S. App Store within three days'] },
-    ],
   },
 
+  // The acting player's input, screen by screen. The shared-board consequence
+  // is the copy's to explain: there are no two consecutive legal states of
+  // both sides to show it with.
   turnSequence: {
-    title: 'One Turn, Several Decisions',
+    title: 'Taking a Tile Means Choosing What to Leave Behind',
     intro: [
-      'Mesa is played between two opponents drawing from the same layered pyramid.',
-      'On each turn, a player selects an exposed tile from the shared board, places it into one of three personal slots, rotates it so the desired colored corner faces the center, and confirms the move.',
-      'Match all three center-facing corners and the player damages their opponent and unlocks the power associated with that color. The power cannot be used until a later turn.',
-      'Both players can see the colors their opponent is building toward. That makes every tile a shared strategic resource.',
-      'Taking one tile might complete your own match. It might also remove the tile your opponent needs, expose a valuable corner beneath it, or prevent a specific power from being earned.',
-      'The player is rarely choosing only for themselves.',
+      'Pick an exposed tile, place it in one of your three slots, and rotate a colored corner toward the center. Match three corners to deal damage and earn a power. Both players can see the match the other is building. The tile you want might also be the one your opponent needs. And once you lift it, what you uncover becomes an option for their turn.',
     ],
     // Rendered by MediaRail in the SequenceSection content slot: one row at a
     // shared height, scrolled on phones. The screens number themselves, so the
@@ -145,33 +128,11 @@ export const mesaContent = {
       'From selecting a shared tile to earning a power, each turn moves through a short sequence of choices before the opponent takes control.',
   },
 
-  boardTeaches: {
-    title: 'The Board Teaches the Game',
-    body: [
-      'The pyramid begins with only one legal move.',
-      'Because each layer partially covers the one beneath it, only the tile at the peak can initially be selected. The opening turn introduces the core interaction without asking the player to evaluate several options at once.',
-      'Available tiles appear at full brightness. Covered tiles are dimmed, while their exposed corners remain visible. After selecting a tile, the player can move it between slots and rotate it as many times as needed before confirming.',
-      'Brief instructions reinforce the sequence: **Pick a tile. Select a slot. Rotate. Confirm.**',
-      'The game included a full tutorial, but the primary interaction was taught through constraint, visual hierarchy, and immediate feedback rather than a large block of explanation.',
-      'The board gradually releases that constraint as the player becomes more comfortable.',
-    ],
-    media: {
-      src: previewmesa,
-      alt: 'The opening Mesa board, with only the peak tile selectable and the placement slots below.',
-    },
-    caption:
-      'The pyramid begins with a single legal move, using the board itself to introduce tile selection before the decision space expands.',
-  },
-
-  tightOpenTight: {
-    title: 'Tight, Open, Tight',
+  board: {
+    title: 'The Board Teaches the Opening and Tightens the Endgame',
     intro: [
-      'The pyramid does more than onboard the player. Its structure creates the arc of the match.',
-      'Removing the first tile exposes several more. Each choice reveals more of the layers beneath, increasing both the number of available moves and the amount of information players can use.',
-      "By the middle of the game, the board is open. Players have multiple colors to pursue, powers waiting to be used, and enough information to anticipate each other's intentions.",
-      'Then the board begins to contract.',
-      'With fewer tiles remaining, the match becomes easier to read but harder to solve. Players compare their remaining health, calculate which colors can still deal enough damage, and decide whether to pursue their own match or deny the one their opponent is building toward.',
-      'If the opponent completes that match, how close will it bring you to zero? Can you remove enough tiles of that color before they do? Is the better move to score damage now, or use a power to control what remains?',
+      'We chose the pyramid because it gave us the clearest opening and the most competitive endings in our paper tests. Only the top tile is playable at first. It’s bright, the covered tiles are dim, and you can see enough of their corners to anticipate what’s underneath.',
+      'The board opens up through the middle of the match. Then the supply runs down. You can see which colors are left and what your opponent needs. The board becomes easier to read, but harder to solve.',
     ],
     // Rendered by TightOpenTightStages in the FeatureSection content slot.
     // Each stage's media is an ordinary descriptor: swap 'placeholder' for
@@ -205,113 +166,36 @@ export const mesaContent = {
         },
       },
     ],
-    caption:
-      'As the pyramid is revealed, available choices expand through the midgame before contracting into a more legible, consequential endgame.',
-    takeaway: [
-      '**Tight, open, tight.**',
-      'We discovered that rhythm by testing several board configurations. The pyramid consistently produced the clearest opening, the widest range of midgame strategies, and the most competitive endings.',
-      '**The board is always revealing and always running out.**',
-    ],
+    // The curves along the bottom of the stages are a design explanation, not
+    // telemetry, and the caption says so.
+    caption: 'Conceptual match rhythm: choices in yellow, tension in red.',
   },
 
-  costOfPower: {
-    title: 'The Cost of Power',
+  powers: {
+    title: 'Steal Is Worth More Than Its Five Damage',
     body: [
-      'Every color match produces two rewards: damage against the opponent and a power that can alter the match.',
-      'The stronger the power, the less immediate damage its color deals.',
-      "A **Bomb** deals only five damage but can destroy every tile in an opponent's slots if they select the trapped tile. **Freeze** deals more damage but temporarily locks part of the shared board. **Shuffle** can rotate your own tiles or disrupt an opponent's nearly completed match without sacrificing the normal draw.",
-      '**Steal** was especially revealing during testing. New players often ignored it because it dealt little damage. Experienced players recognized that a single stolen tile could block an opponent, complete their own match, deal damage, and unlock another power at the same time.',
-      'That difference was intentional. The rules were easy to understand, but their value changed as players learned to read the entire board.',
-      'A compact power key showed each ability, its damage, and how many matching tiles remained. Detailed descriptions stayed behind an information control. The interface exposed the economy without telling the player which decision to make.',
+      'New players often passed over Steal. Experienced players saw a way to take a tile from an opponent’s slot, interrupt their match, and finish their own. That match could earn another power. The damage number told you what the hit was worth. Reading both players’ slots told you what the move was worth.',
     ],
-    // Rendered by FeaturedGallery in the FeatureSection content slot: the power
-    // key is the lead, the six ability cards are the supporting set. Aspect
-    // ratios are the artwork's own — the gallery derives its column split from
-    // them, so the key and the card grid come out the same height.
-    key: {
-      src: powerKey,
-      alt: 'The Mesa power key, listing each ability alongside its damage value and remaining tile count.',
-      aspectRatio: '1280 / 2675',
-    },
-    // Ordered as the power key lists them, so the two read together.
-    powers: [
-      {
-        key: 'bomb',
-        src: powerBomb,
-        alt: 'Bomb power card: −5 damage. Hide a bomb on any available tile; if your opponent draws it, their current tiles are destroyed.',
-        aspectRatio: '388 / 560',
-      },
-      {
-        key: 'destroy',
-        src: powerDestroy,
-        alt: "Destroy power card: −10 damage. Select one of your opponent's tiles to destroy.",
-        aspectRatio: '388 / 560',
-      },
-      {
-        key: 'shuffle',
-        src: powerShuffle,
-        alt: "Shuffle power card: −15 damage. Rotate your opponent's tiles to disrupt their match.",
-        aspectRatio: '388 / 560',
-      },
-      {
-        key: 'draw',
-        src: powerDraw,
-        alt: 'Draw power card: −10 damage. Draw an additional tile.',
-        aspectRatio: '388 / 560',
-      },
-      {
-        key: 'freeze',
-        src: powerFreeze,
-        alt: 'Freeze power card: −15 damage. Select any available tile to freeze it and any adjacent tiles for one turn.',
-        aspectRatio: '388 / 560',
-      },
-      {
-        key: 'steal',
-        src: powerSteal,
-        alt: "Steal power card: −5 damage. Take one of your opponent's tiles and make it your own.",
-        aspectRatio: '388 / 560',
-      },
-    ],
-    caption:
-      "The power key exposes each ability's damage and remaining tile count, while the individual cards carry the detail — the information to weigh immediate damage against board control, without being told which to take.",
-  },
-
-  asynchronous: {
-    title: 'Designing for Asynchronous Play',
-    intro: [
-      'Mesa was designed around short asynchronous turns. Players could remain in a match waiting for a response, but they could also leave and maintain as many as five active games at once.',
-      'A $1.99 expansion unlocked unlimited matches and additional board layouts. Players who purchased the new layouts could invite anyone to play them, allowing the content to spread without dividing the player base.',
-      'Game Center handled identities, friend invitations, random opponents, and notifications. That allowed a small team to build multiplayer without creating an independent account and matchmaking platform.',
-      "When a player returned, the opponent's previous turn automatically replayed. They could replay it again at any time to see which tile had been taken, how it was placed, what damage was dealt, and how the shared board had changed.",
-      "A gradient beneath the board reinforced the flow. It illuminated the pyramid when a tile could be selected, moved toward the player's slots during placement, and traveled toward the opponent when the turn changed. When a power was earned, the board filled with that power's color.",
-      'The same visual system communicated action, ownership, and turn state throughout the match.',
-    ],
+    // Steal's row of the shipped power key, the one value both artifacts agree
+    // on (−5). Shown at about its own size: it is a 506px crop.
     media: {
-      placeholder:
-        'Sequence or animation — Opponent Takes Turn → Player Returns → Previous Turn Replays → Context Restored → Next Decision',
-      alt: "Sequence showing a returning player watching their opponent's previous turn replay.",
+      src: powerKeySteal,
+      alt: 'The Steal row of Mesa’s power key: the Steal icon, −5 damage, and 2 of 21 matching tiles remaining.',
+      aspectRatio: '506 / 70',
+      fit: 'contain',
+      caption: 'Steal deals five damage and takes a tile from the opponent’s slots.',
     },
-    caption:
-      "Returning players see their opponent's previous move replay automatically, restoring the context needed to make the next decision.",
   },
 
+  // The replay point lives here now; the retention explanation is a design
+  // reflection, not a causal measurement. No outcome tiles: the launch figures
+  // are in the hero.
   conclusion: {
-    outcomes: [
-      { value: 'Top 5 Free Games', detail: 'U.S. App Store' },
-      { value: '3 Days', detail: 'To reach the Top 5' },
-      { value: '~4 Months', detail: 'From Friday prototype to shipped game' },
-    ],
+    lessonsTitle: 'A Strong First Week Needed a Stronger Second Month',
     lessons: [
-      'Mesa launched on July 24, 2014 and reached the Top 5 Free Games in the U.S. App Store within three days.',
-      'Mesa launched without an AI opponent, ranked play, recurring challenges, abandonment rules, or a post-launch content roadmap. Players could not practice alone, test new strategies immediately, or remain engaged when an opponent stopped responding.',
-      'The expansion revealed another gap in our thinking. We expected players who enjoyed Mesa to pay for more than five simultaneous matches. Additional board layouts added some variety, but the purchase was still built primarily around removing a limit rather than delivering a meaningful new layer of play.',
-      'We were asking players to pay because they wanted **more Mesa**, without giving them enough that felt meaningfully new.',
-      'A stronger expansion would have paired unlimited matches and alternate boards with substantial content: AI opponents, new powers, challenges, progression, or competitive goals.',
-      'Forest Giant was accustomed to creating products for clients and handing them off. Mesa taught me that launching your own product is different. Release is not the end of the design process. It is the point where real behavior begins revealing what the product needs next.',
-      'It also taught me that monetization cannot be treated as a gate placed around an existing experience. The paid offering needs its own compelling value proposition, designed alongside retention and post-launch content rather than added after the core game is complete.',
+      'Players could keep several matches going. When they came back, their opponent’s last move replayed so they could see what had changed. We had designed for someone returning to a match. After the first month, we saw how little we had given them to return to once that match was over.',
+      'If I were building Mesa again, I’d prototype what happens between matches while the core rules are still on paper. I’d start with solo practice and a competitive goal that carries into the next game.',
     ],
-    takeaway:
-      'The core experience, business model, retention systems, and roadmap must be designed as one connected system.',
   },
 };
 

@@ -1,8 +1,50 @@
 /* FundSeeder-specific visuals. Only custom diagram styling belongs here —
    layout, gutters, and typography come from the case-study system.
 
-   Both diagrams sit in stages that run to within --cs-bleed-inset of the
-   viewport edge, so each pads itself back in to the page gutter. */
+   The ladder-and-rivals composition and the stacked interface captures sit in
+   feature stages that run to within --cs-bleed-inset of the viewport edge, so
+   each pads itself back in to the page gutter. The flow diagram and the pinned
+   table sit in content columns, already on the gutter. */
+
+/* --------------------------------------------------------------------------
+   Tiers and closest competition (NextStepComposition, F04's stage)
+   -------------------------------------------------------------------------- */
+
+.fs-next {
+  display: grid;
+  justify-items: center;
+  gap: clamp(32px, 4vw, 72px);
+  padding-inline: calc(var(--cs-edge) - var(--cs-bleed-inset));
+}
+
+.fs-next__ladder {
+  width: 100%;
+}
+
+/* The composition already pads to the gutter, so the ladder takes none of
+   its own here. */
+.fs-next .fs-ladder {
+  padding-inline: 0;
+}
+
+/* The ranking card: the actual dashboard card, at the width its rows read at. */
+.fs-next__rivals {
+  width: 100%;
+  max-width: 680px;
+}
+
+/* Its caption is already on the gutter; the stage's own caption padding (0,4,0
+   in caseStudy.css's mobile rules) must not apply twice. */
+.fs-next .cs-media .cs-media__caption.cs-caption.type-caption {
+  padding-inline: 0;
+}
+
+@media (max-width: 767.98px) {
+  /* The feature stage runs edge to edge on phones. */
+  .fs-next {
+    padding-inline: var(--cs-edge);
+  }
+}
 
 /* --------------------------------------------------------------------------
    Tier ladder (tiers FeatureSection)
@@ -131,212 +173,154 @@
 }
 
 /* --------------------------------------------------------------------------
-   Selection flow (destination SequenceSection)
+   Stacked interface captures (StackedMedia, F05 and F07)
    -------------------------------------------------------------------------- */
 
-.fs-flow {
-  --fs-dot: clamp(12px, 1vw, 16px);
-  --fs-band: color-mix(in srgb, var(--cs-fg) 9%, transparent);
-  --fs-radius: clamp(8px, 0.8vw, 14px);
-
+/* Left-aligned on the gutter, like the section's copy; each item caps itself
+   at its own measure (--fs-stack-max), so supporting views stay smaller than
+   the lead instead of being stretched to it. */
+.fs-stack {
   display: grid;
+  justify-items: start;
+  gap: clamp(28px, 3.2vw, 56px);
   padding-inline: calc(var(--cs-edge) - var(--cs-bleed-inset));
+}
+
+.fs-stack__item {
+  width: 100%;
+  max-width: var(--fs-stack-max, 1400px);
+}
+
+/* Captions sit under their own image, flush with it. */
+.fs-stack .cs-media .cs-media__caption.cs-caption.type-caption {
+  padding-inline: 0;
+  text-align: start;
+}
+
+@media (max-width: 767.98px) {
+  /* Edge to edge on phones, where every pixel of a dense screen counts; the
+     captions come back to the gutter. */
+  .fs-stack {
+    padding-inline: 0;
+  }
+
+  .fs-stack .cs-media .cs-media__caption.cs-caption.type-caption {
+    padding-inline: var(--cs-edge);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   What one added strategy sets off (RankingFlow, the overview's media)
+   -------------------------------------------------------------------------- */
+
+.fs-flow,
+.fs-pinned {
+  --fs-muted: color-mix(in srgb, var(--cs-fg) 78%, transparent);
+
+  margin: 0;
   color: var(--cs-fg);
 }
 
-.fs-flow__lane-label,
-.fs-flow__cell,
-.fs-flow__stages {
+.fs-flow p {
   margin: 0;
 }
 
-.fs-flow__lane-label {
-  color: color-mix(in srgb, var(--cs-fg) 70%, transparent);
+.fs-flow {
+  display: grid;
+  gap: clamp(12px, 1.2vw, 18px);
+  max-width: 720px;
 }
 
-/* The list keeps its semantics for screen readers; its items take their
-   places in the outer grid. */
-.fs-flow__stages {
-  display: contents;
-  list-style: none;
-  padding: 0;
+.fs-flow__label,
+.fs-pinned__label {
+  color: var(--fs-muted);
 }
 
-.fs-flow__cell {
-  padding: clamp(10px, 1.1vw, 20px) clamp(12px, 1.2vw, 22px);
-  background-color: var(--fs-band);
-  color: color-mix(in srgb, var(--cs-fg) 88%, transparent);
+/* A node: a hairline box with a heavier rule down its leading edge. */
+.fs-flow__node {
+  display: grid;
+  gap: 0.45em;
+  padding: clamp(14px, 1.3vw, 22px) clamp(16px, 1.5vw, 26px);
+  border: 1px solid color-mix(in srgb, var(--cs-fg) 45%, transparent);
+  border-inline-start: 4px solid var(--cs-fg);
+  border-radius: 2px;
 }
 
-.fs-flow__stage {
+.fs-flow__node .type-body-sm {
+  color: var(--fs-muted);
+}
+
+.fs-flow__term {
+  color: var(--cs-fg);
+  font-weight: inherit;
+}
+
+/* The connector: a stroke down from the first node, its note beside it, and
+   the arrow into the second. */
+.fs-flow__bridge {
   position: relative;
-  display: flex;
-  align-items: center;
+  margin-inline-start: clamp(18px, 1.6vw, 26px);
+  padding: 0.6em 0 1.6em clamp(14px, 1.2vw, 20px);
+  border-inline-start: 1.5px solid currentColor;
+  color: var(--fs-muted);
 }
 
-.fs-flow__dot {
-  position: relative;
-  z-index: 1;
-  flex: none;
-  width: var(--fs-dot);
-  height: var(--fs-dot);
-  border-radius: 50%;
-  background-color: var(--cs-fg);
-}
-
-/* The line through the stages, broken nowhere: each stage draws its share, and
-   the first and last stop at their dot. */
-.fs-flow__stage::before {
+.fs-flow__bridge::after {
   content: '';
   position: absolute;
-  background-color: color-mix(in srgb, var(--cs-fg) 45%, transparent);
+  inset-block-end: -1px;
+  inset-inline-start: -6px;
+  border-top: 8px solid var(--cs-fg);
+  border-inline: 5px solid transparent;
 }
 
-.fs-flow__stage-label {
-  position: relative;
-  z-index: 1;
+/* --------------------------------------------------------------------------
+   The pinned row (PinnedTable, beside the comparison copy)
+   -------------------------------------------------------------------------- */
+
+/* The split's media column bleeds off the right edge at every width; the
+   table is text, so it comes back to the gutter. */
+.fs-pinned {
+  display: grid;
+  gap: clamp(12px, 1.2vw, 18px);
+  max-width: calc(640px + var(--cs-edge));
+  padding-inline-end: var(--cs-edge);
 }
 
-/* Desktop: stages are columns, lanes are rows. */
-@media (min-width: 768px) {
-  .fs-flow {
-    grid-template-columns: repeat(var(--fs-stages), minmax(0, 1fr));
-    row-gap: clamp(10px, 1.1vw, 18px);
-  }
-
-  .fs-flow__lane-label[data-lane='public'] {
-    grid-row: 1;
-    grid-column: 1 / -1;
-  }
-
-  .fs-flow__lane-label[data-lane='signal'] {
-    grid-row: 5;
-    grid-column: 1 / -1;
-  }
-
-  .fs-flow__cell {
-    grid-column: var(--fs-col) / span var(--fs-span);
-  }
-
-  .fs-flow__cell[data-lane='public'] {
-    grid-row: 2;
-  }
-
-  .fs-flow__cell[data-lane='signal'] {
-    grid-row: 4;
-  }
-
-  .fs-flow__cell[data-band-start] {
-    border-start-start-radius: var(--fs-radius);
-    border-end-start-radius: var(--fs-radius);
-  }
-
-  .fs-flow__cell[data-band-end] {
-    border-start-end-radius: var(--fs-radius);
-    border-end-end-radius: var(--fs-radius);
-  }
-
-  .fs-flow__stage {
-    grid-row: 3;
-    grid-column: var(--fs-col);
-    flex-direction: column;
-    align-items: flex-start;
-    gap: clamp(8px, 0.8vw, 14px);
-    padding: clamp(14px, 1.6vw, 28px) clamp(12px, 1.2vw, 22px);
-  }
-
-  .fs-flow__stage::before {
-    top: calc(clamp(14px, 1.6vw, 28px) + var(--fs-dot) / 2 - 1px);
-    left: 0;
-    right: 0;
-    height: 2px;
-  }
-
-  .fs-flow__stage[data-first]::before {
-    left: clamp(12px, 1.2vw, 22px);
-  }
-
-  .fs-flow__stage[data-last]::before {
-    right: auto;
-    width: clamp(12px, 1.2vw, 22px);
-  }
+.fs-pinned__table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  text-align: start;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Phones: the same grid transposed — stages run down the page, the public
-   lane to their left and Signal to their right. */
-@media (max-width: 767.98px) {
-  .fs-flow {
-    /* The sequence stage keeps the left gutter on phones and bleeds right. */
-    padding-inline: 0 var(--cs-edge);
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.15fr);
-    grid-template-rows: auto repeat(var(--fs-stages), auto);
-    column-gap: 10px;
-  }
+.fs-pinned__table th,
+.fs-pinned__table td {
+  padding: 0.7em 0.6em;
+  border-block-end: 1px solid color-mix(in srgb, var(--cs-fg) 30%, transparent);
+  text-align: start;
+}
 
-  .fs-flow__lane-label {
-    grid-row: 1;
-    padding-bottom: 10px;
-  }
+.fs-pinned__table :is(th, td):first-child {
+  padding-inline-start: 0;
+}
 
-  .fs-flow__lane-label[data-lane='public'] {
-    grid-column: 1;
-  }
+.fs-pinned__table :is(th, td):last-child {
+  padding-inline-end: 0;
+  text-align: end;
+}
 
-  .fs-flow__lane-label[data-lane='signal'] {
-    grid-column: 3;
-  }
+.fs-pinned__table th {
+  color: var(--fs-muted);
+}
 
-  .fs-flow__cell {
-    grid-row: var(--fs-row) / span var(--fs-span);
-    padding: 12px;
-  }
+.fs-pinned__table tbody td {
+  color: var(--fs-muted);
+}
 
-  .fs-flow__cell[data-lane='public'] {
-    grid-column: 1;
-  }
-
-  .fs-flow__cell[data-lane='signal'] {
-    grid-column: 3;
-  }
-
-  .fs-flow__cell[data-band-start] {
-    border-start-start-radius: var(--fs-radius);
-    border-start-end-radius: var(--fs-radius);
-  }
-
-  .fs-flow__cell[data-band-end] {
-    border-end-start-radius: var(--fs-radius);
-    border-end-end-radius: var(--fs-radius);
-  }
-
-  .fs-flow__stage {
-    grid-row: var(--fs-row);
-    grid-column: 2;
-    flex-direction: column;
-    justify-content: center;
-    gap: 6px;
-    min-height: 92px;
-    padding-block: 12px;
-  }
-
-  .fs-flow__stage::before {
-    left: calc(50% - 1px);
-    width: 2px;
-    top: 0;
-    bottom: 0;
-  }
-
-  .fs-flow__stage[data-first]::before {
-    top: 50%;
-  }
-
-  .fs-flow__stage[data-last]::before {
-    bottom: 50%;
-  }
-
-  /* The line runs behind the label here, so the label cuts it. */
-  .fs-flow__stage-label {
-    padding: 2px 4px;
-    background-color: var(--cs-bg);
-  }
+/* The trader's own row, held beneath the field: full ink, a heavier rule. */
+.fs-pinned__table tfoot td {
+  border-block-start: 3px solid var(--cs-fg);
+  border-block-end: 0;
+  color: var(--cs-fg);
 }

@@ -15,23 +15,24 @@ page order, starting at 1.
 
 ## Status
 
+Slots follow the finishing pass (November 2026).
+
 | Slot | Asset | Made from |
 | --- | --- | --- |
 | `hero.media` | `hero.webp` | `7R3A4885.jpg`, native size; already 3:2, the hero's frame |
-| `overview.gallery[0]` | `quantified.webp` | `Downloads/quantified/Quantified Header.jpg` (1090×614), cropped to 3:2 (x 90–1011) around the phone and watch |
-| `overview.gallery[1]` | `roth-river.webp` | `Downloads/roth-river.jpg` (540×374), trimmed to 3:2 (y 7–367). **Low resolution** — soft where the 3-up stacks full-width on phones; replace with a larger original if one exists. |
-| `overview.gallery[2]` | `gross.webp` | `Downloads/gross/Gross 1.jpg` (1010×674), trimmed to an exact 3:2 |
-| `responsibility.media` | `studio-floor.webp` | `Downloads/A82A7348-hero.jpg` (2550×1076), cropped to 16:9 at full height (x 637–2550): a 3:2 frame can't hold both the pair at the laptop and the whiteboard session |
-| `practice.gallery` | `guide/page-09` · `-11` · `-12` · `-23` (`.webp` and `-full.webp`) | `FG-Process-FlowChart-V0-0-1.pdf`, those pages rendered flat at 1600px and 3200px wide |
-| `means.gallery[0]` | **Outstanding** | The critique worksheet if it survives. Fallback: `FG-WordDoc-Stakeholders.pdf` (keep the LUMA Institute attribution) or an excerpt of `FG-WordDoc-PreMeetingWorksheet.pdf` — neither is in the folder. Never labelled a critique worksheet. |
-| `means.gallery[1]` | `workshop.webp` | `workshop-7930.tif`, resized |
-| `possible.rail` | `studio-life/dashboard-review` · `shipped-apps` · `talk-night` · `gridlock-2019` · `warmitupfg` (`.webp`) | `Downloads/` `DSCF3006.jpg` · `ForestGiant_161.JPG` · `7R3A3407.jpg` · `Gridlock-2019-9824.jpg` · `warmitupfg-013.jpg`, each resized to 2000px, full 3:2 frame |
+| `hero.gallery` | `quantified.webp` · `roth-river.webp` · `gross.webp` | The compact 3-up under the hero, captioned as studio credits. Larger than the package's recovered crops of the same images. `roth-river.webp` is still low resolution (540×360). |
+| `explicit.media` | `studio-floor.webp` | `Downloads/A82A7348-hero.jpg` (2550×1076), cropped to 16:9 at full height (x 637–2550) |
+| `critique.media` | `workshop.webp` | `workshop-7930.tif`, resized; a general working session, labelled as one. The method is in the copy until the actual critique artifact turns up. |
+| `practice.pages` | `guide/page-09.webp` · `page-11` · `page-12` · `page-23` (each + `-full`) | `FG-Process-FlowChart-V0-0-1.pdf` pages 9, 11, 12 and 23, rendered flat at 1600px and 3200px wide. Whole pages, never cropped; a strip rendered by `MediaRail`. Page 11 is the package's `forest-project-prep.webp`. |
+
+Not imported any more: `studio-life/shipped-apps`, `dashboard-review`,
+`talk-night`, `gridlock-2019` and `warmitupfg`.
 
 ## Still to confirm
 
-- **Overview captions:** Jon's involvement in Quantified, Gross and the Roth River
-  display, and their dates. The Roth River caption names the client from the
-  file name; confirm it, and that the Woodford Reserve barrel was the real
+- **Gallery captions:** the three are studio credits (name and what it did).
+  Add Jon's role in a project only where it is confirmed. The Roth River caption
+  names the client; confirm that the Woodford Reserve barrel was the real
   deployment rather than a demo.
 - **`responsibility.media`:** studio location and approximate date for a caption.
 - **`means.gallery[1]`:** the actual activity and occasion for a caption, and

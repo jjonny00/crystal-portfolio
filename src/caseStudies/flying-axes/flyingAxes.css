@@ -168,3 +168,173 @@
     padding-inline: var(--cs-edge);
   }
 }
+
+/* --------------------------------------------------------------------------
+   Shared by the two diagrams below
+   -------------------------------------------------------------------------- */
+
+.fa-modes,
+.fa-venues {
+  --fa-rule: color-mix(in srgb, var(--cs-fg) 45%, transparent);
+  --fa-muted: color-mix(in srgb, var(--cs-fg) 78%, transparent);
+
+  margin: 0;
+  color: var(--cs-fg);
+}
+
+:is(.fa-modes, .fa-venues) :is(p, ul, ol, figure) {
+  margin: 0;
+}
+
+/* Both sit in stages that run to within --cs-bleed-inset of the viewport (edge
+   to edge on phones), so each pads itself back onto the page gutter. */
+.fa-modes,
+.fa-venues {
+  padding-inline: calc(var(--cs-edge) - var(--cs-bleed-inset));
+}
+
+/* Captions inside are already on the gutter, so the stage's own caption
+   padding (up to 0,4,0 in caseStudy.css's mobile rules) must not apply twice. */
+:is(.fa-modes, .fa-venues) .cs-media .cs-media__caption.cs-caption.type-caption {
+  padding-inline: 0;
+}
+
+@media (max-width: 767.98px) {
+  /* Sequence stage: keeps the left gutter, bleeds right. */
+  .fa-modes {
+    padding-inline: 0 var(--cs-edge);
+  }
+
+  /* Feature stage: bleeds both edges. */
+  .fa-venues {
+    padding-inline: var(--cs-edge);
+  }
+}
+
+.fa-modes__label,
+.fa-venues__label,
+.fa-venues__muted {
+  color: var(--fa-muted);
+}
+
+/* A node: a hairline box with a heavier rule down its leading edge. */
+.fa-modes__mode,
+.fa-venues__node {
+  display: grid;
+  align-content: start;
+  gap: 0.7em;
+  padding: clamp(14px, 1.3vw, 22px) clamp(16px, 1.5vw, 26px);
+  border: 1px solid var(--fa-rule);
+  border-inline-start: 4px solid var(--cs-fg);
+  border-radius: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Official game and freeform (GameModesComparison, the freeform stage)
+   -------------------------------------------------------------------------- */
+
+.fa-modes {
+  display: grid;
+  gap: clamp(28px, 3vw, 48px);
+}
+
+.fa-modes__figure {
+  display: grid;
+  gap: clamp(12px, 1.2vw, 18px);
+  max-width: 1100px;
+}
+
+.fa-modes__pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(14px, 1.6vw, 24px);
+}
+
+.fa-modes__steps {
+  display: grid;
+  gap: 0.35em;
+  padding-inline-start: 1.3em;
+  color: var(--fa-muted);
+}
+
+/* The original rules card, smaller than the diagram: a page to read, not a
+   picture to look at. */
+.fa-modes__booklet {
+  width: 100%;
+  max-width: 640px;
+}
+
+@media (max-width: 767.98px) {
+  .fa-modes__pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   One venue (VenueSystem, the venues stage)
+   -------------------------------------------------------------------------- */
+
+.fa-venues {
+  display: grid;
+  gap: clamp(12px, 1.2vw, 18px);
+  max-width: calc(880px + 2 * (var(--cs-edge) - var(--cs-bleed-inset)));
+}
+
+.fa-venues__devices {
+  display: grid;
+  gap: 0.5em;
+  padding: 0;
+  list-style: none;
+}
+
+.fa-venues__device {
+  display: grid;
+  grid-template-columns: minmax(9em, auto) minmax(0, 1fr);
+  gap: 0 1em;
+  padding-block-start: 0.5em;
+  border-block-start: 1px solid var(--fa-rule);
+}
+
+@media (max-width: 479.98px) {
+  .fa-venues__device {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The connector: a stroke down from the venue, its note beside it, an arrow
+   into the three venues. */
+.fa-venues__bridge {
+  position: relative;
+  margin-inline-start: clamp(18px, 1.6vw, 26px);
+  padding: 0.6em 0 1.6em clamp(14px, 1.2vw, 20px);
+  border-inline-start: 1.5px solid currentColor;
+  color: var(--fa-muted);
+}
+
+.fa-venues__bridge::after {
+  content: '';
+  position: absolute;
+  inset-block-end: -1px;
+  inset-inline-start: -6px;
+  border-top: 8px solid var(--cs-fg);
+  border-inline: 5px solid transparent;
+}
+
+.fa-venues__locations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  padding: 0;
+  list-style: none;
+}
+
+.fa-venues__location {
+  padding: 0.55em 0.9em;
+  border: 1px solid var(--fa-rule);
+  border-radius: 2px;
+}
+
+/* The build strip under the diagram (a MediaRail, the stage's own child). */
+.fa-venues-strip {
+  margin-top: clamp(28px, 3.2vw, 56px);
+}

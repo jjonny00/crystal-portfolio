@@ -5,9 +5,10 @@
 // custom visual (if any) goes in a section's media slot. Everything else is
 // content in flyingAxesContent.js.
 //
-// Tone rhythm, as in Mesa: every section sits on colour B except two that
-// paint no background at all, so the crystal shows through — the hero, and the
-// turn in the story where coaches change the game. Both follow from that: the
+// Five sections, the finishing pass (November 2026). Tone marks a chapter
+// change rather than alternating: every section sits on colour B except two
+// that paint no background, so the crystal shows through — the hero, and the
+// turn from the game to how the venues ran. Both follow from that: the
 // registry entry must stay 'reveal', and the overlay keeps the renderer awake
 // whenever either is near the viewport.
 
@@ -15,8 +16,6 @@ import React from 'react';
 import {
   CaseStudyPage,
   CaseStudyHero,
-  CaseStudyOverview,
-  SplitSection,
   SequenceSection,
   FeatureSection,
   ConclusionSection,
@@ -24,6 +23,8 @@ import {
   MediaRail,
 } from '../system';
 import ScoreboardCallouts from './ScoreboardCallouts';
+import GameModesComparison from './GameModesComparison';
+import VenueSystem from './VenueSystem';
 import { flyingAxesContent } from './flyingAxesContent';
 import './flyingAxes.css';
 
@@ -36,6 +37,7 @@ const FlyingAxesCaseStudy = ({ project, onClose }) => {
       label={`${c.projectName} case study: ${c.title}`}
       onClose={onClose}
     >
+      {/* The cage, uncropped, beside the introduction. */}
       <CaseStudyHero
         tone="a"
         background="none"
@@ -43,77 +45,47 @@ const FlyingAxesCaseStudy = ({ project, onClose }) => {
         title={c.title}
         intro={c.hero.intro}
         media={c.hero.media}
+        metadata={c.hero.metadata}
       />
 
-      <CaseStudyOverview
-        tone="b"
-        title={c.overview.title}
-        body={c.overview.body}
-        metadata={c.overview.metadata}
-        media={c.overview.media}
-      />
-
-      {/* The close-up and the board in place, as one pair: what the display
-          says, then where it hangs. The close-up carries its own callouts, so
-          its item is a custom child rather than a plain image. */}
-      <FeatureSection
-        tone="b"
-        align="start"
-        title={c.match.title}
-        intro={c.match.intro}
-      >
+      {/* The scoreboard straight after the copy about sightlines, annotated,
+          then quick entry and the scorecard: one exhibit of the session. The
+          annotated board carries its own callouts, so its item is a custom
+          child rather than a plain image. */}
+      <FeatureSection tone="b" align="start" title={c.coach.title} intro={c.coach.intro}>
         <MediaGallery
-          layout="2-up"
+          layout="3-up"
           items={[
             {
               key: 'scoreboard',
               autoHeight: true,
-              children: <ScoreboardCallouts {...c.match.scoreboard} />,
+              children: <ScoreboardCallouts {...c.coach.scoreboard} />,
             },
-            c.match.venue,
+            ...c.coach.gallery,
           ]}
-          caption={c.match.caption}
+          caption={c.coach.caption}
         />
       </FeatureSection>
 
-      {/* The app, then what it printed: the session and its souvenir, stacked
-          in the order a visit runs. */}
-      <SplitSection
-        tone="b"
-        direction="text-left"
-        title={c.coach.title}
-        body={c.coach.body}
-        media={<MediaGallery layout="stacked" items={c.coach.gallery} />}
-      />
+      {/* The two formats, then the rules card that spread one variation. */}
+      <SequenceSection tone="b" title={c.freeform.title} intro={c.freeform.intro}>
+        <GameModesComparison {...c.freeform.formats} booklet={c.freeform.booklet} />
+      </SequenceSection>
 
-      {/* The stage sits after the booklet paragraph, and the observation and
-          league-play paragraphs close the section beneath it. The mapping
-          session, then three pages from the booklet, read left to right. All
-          four are landscape, so on phones the rail runs shorter than its
-          default: each item comes in under the screen width and the next one
-          peeks past the edge. */}
+      {/* On the crystal: the story turns from the game to the venues. The
+          diagram, then how the scoreboard was made as a strip beneath it: a
+          direct child of the stage, so it runs edge to edge like every rail. */}
       <FeatureSection
         tone="a"
         background="none"
         align="start"
-        title={c.changeTheGame.title}
-        intro={c.changeTheGame.intro}
-        caption={c.changeTheGame.caption}
-        takeaway={c.changeTheGame.closing}
-      >
-        <MediaRail items={c.changeTheGame.steps} mobileHeight="56vw" />
-      </FeatureSection>
-
-      {/* How the scoreboard was made, read left to right: four photos of mixed
-          shapes, so a rail at one shared height carries them as one band. */}
-      <SequenceSection
-        tone="b"
         title={c.venues.title}
-        intro={c.venues.body}
+        intro={c.venues.intro}
         caption={c.venues.caption}
       >
-        <MediaRail items={c.venues.steps} />
-      </SequenceSection>
+        <VenueSystem {...c.venues.system} />
+        <MediaRail className="fa-venues-strip" items={c.venues.steps} />
+      </FeatureSection>
 
       <ConclusionSection
         tone="b"
@@ -121,7 +93,6 @@ const FlyingAxesCaseStudy = ({ project, onClose }) => {
         outcomes={c.conclusion.outcomes}
         lessonsTitle={c.conclusion.lessonsTitle}
         lessons={c.conclusion.lessons}
-        takeaway={c.conclusion.takeaway}
       />
     </CaseStudyPage>
   );

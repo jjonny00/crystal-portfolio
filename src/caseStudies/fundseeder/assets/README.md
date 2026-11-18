@@ -15,23 +15,29 @@ enlarged view only.
 
 ## Status
 
-| Slot | Asset | Made from |
-| --- | --- | --- |
-| `hero.media` | `hero.webp` | A composition, 2400×1600 (the hero's 3:2) on a transparent ground: `tiers/tierA.png` with the 101 / 102 You / 103 rows of `Dashboard05.png`'s ranking panel floating over it. Built in HTML and rendered headlessly. |
-| `overview.gallery` | `dashboard.webp` (+ `-full`) | `Dashboard05.png`, whole frame |
-| `overview.gallery` | `leaderboard.webp` (+ `-full`) | `Leaderboard.png`, top 3840×2256 cropped to the dashboard's ratio; `-full` is the whole page |
-| `overview.gallery` | — Signal | **Still a placeholder.** No Signal screen in the supplied set. |
-| `tiers.ladder` | `tiers/tier-{d,c,b,a,s}.webp` | The badge cut from each tier card, 272×272, masked to the ring's outer edge. `tierC.png`'s badge sits 4px right of the others; the crop follows it. The ladder itself is `TierLadder.jsx`. |
-| `leaderboard.gallery` | `leaderboard-table.webp` (+ `-full`) | `Leaderboard.png`, the leaderboard panel from the filter bar to the pinned row, 2577×2227 |
-| `leaderboard.gallery` | `leaderboard-filters.webp` (+ `-full`) | `Group 3385.png`, whole frame (same ratio as the table, so the pair sits level) |
-| `nextRival.gallery` | `ranking-neighbourhood.webp` | `Dashboard05.png`, the ranking panel alone, its rounded corners cut transparent |
-| `nextRival.gallery` | `pinned-entry.webp` | `Leaderboard.png`, rows 12–16 and the pinned "You" row |
-| `identity.gallery` | `names-and-flags.webp` | `Group 3385.png`, the podium |
-| `identity.gallery` | — name approval | **Still a placeholder.** No approval screen in the supplied set. |
-| `destination.flow` | — | Drawn by `SelectionFlow.jsx`; no raster asset |
+Slots follow the finishing pass (November 2026).
 
-`home-hero-cards03.jpg` (the fanned tier cards from fundseeder.com's hero) was
-in the set and isn't used: the case study's hero needed rank as well as tier.
-fundseeder.com's own feature images (`home-features-*`, `howItWorks-*`) are
-800–912px wide, too small for any slot here, and were used only as reference
-for the hero's composition.
+| Slot | Asset | Placement |
+| --- | --- | --- |
+| `hero.media` | `v2/f01-hero-desktop.webp` (1600×1050) | Directly on the crystal, no frame |
+| `overview.flow` | — | Drawn live by `RankingFlow.jsx` |
+| `nextStep.ladder` | `tiers/tier-d.webp` … `tier-s.webp` | Drawn by `TierLadder.jsx` around the product's badges |
+| `nextStep.rivals` | `v2/f04-nearby-rivals.webp` (1280×1300) | Centred under the ladder, max 680px |
+| `compare.pinned` | — | Drawn live by `PinnedTable.jsx`: the source's ranks, aliases and FS Scores (81.23 for the pinned trader); flags left out, the country intent unconfirmed |
+| `signal.media` | `signal/pairwise-evidence.webp` (345×275) · `signal/connection-detail.webp` (1194×340) | `StackedMedia.jsx`, max 400px / 1000px, each expandable. Crops with no trader names or contact details in frame; each is its own enlarged view (`src` and `fullSrc` together). |
+
+The figures (17 seeded, 1,027 ranked) are as of August 2026: the hero's
+before/after sentence says so, and the outcomes carry the date once for the pair.
+
+The v2 comparison, period-control and Signal screens were removed from the
+repo: the Signal screens showed trader names and emails, and the leaderboard's
+1,700 strategies disagreed with the 1,027 reported. The originals are still in
+`fundseederViz/fundseeder_webp_v2`.
+
+Not imported any more (the v1 assets): `hero.webp`, `ranking-neighbourhood.webp`,
+`pinned-entry.webp`, `leaderboard-filters.webp`, `dashboard.webp`,
+`leaderboard.webp`, `leaderboard-table.webp` (each with `-full` where there is
+one) and `names-and-flags.webp`.
+
+Still to capture, if it can be done in one short session: an expanded
+leaderboard row.

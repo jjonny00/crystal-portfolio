@@ -86,3 +86,10 @@
 .mesa-arc__box > .cs-media > .cs-media__frame {
   aspect-ratio: auto;
 }
+
+/* Steal's row of the power key (a 506px crop): about its own size in the split's
+   media column, so it is never blown up past what it holds. */
+.mesa-steal {
+  width: 100%;
+  max-width: 460px;
+}

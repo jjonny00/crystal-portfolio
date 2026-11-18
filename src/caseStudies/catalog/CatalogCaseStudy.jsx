@@ -44,6 +44,7 @@ const CatalogCaseStudy = ({ project, onClose }) => {
         title={c.title}
         intro={c.hero.intro}
         media={c.hero.media}
+        metadata={c.hero.metadata}
       />
 
       {/* --- CaseStudyOverview -------------------------------------------- */}
@@ -51,7 +52,6 @@ const CatalogCaseStudy = ({ project, onClose }) => {
         tone="b"
         title={c.overview.title}
         body={c.overview.body}
-        metadata={c.overview.metadata}
         media={
           <MediaGallery
             layout="3-up"

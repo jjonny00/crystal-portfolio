@@ -23,25 +23,26 @@ hero: {
 
 ## Status
 
+Slots follow the finishing pass (November 2026).
+
 | Slot | Asset |
 | --- | --- |
-| `hero.media` | `hero.webp` |
+| `hero.media` | `opening-board.webp` (1480×1435, from the Case Study Finish package) — the opening board, its one playable tile at the peak |
 | `overview.gallery` | `prototype01.webp` · `prototype02.webp` · `prototype03.webp` |
 | `turnSequence.steps` | `one-turn/one-turn-01.webp` … `-05.webp` — rendered by `MediaRail` |
-| `boardTeaches.media` | `preview-mesa.webp` |
-| `tightOpenTight.stages` | `tight-open-tight01.webp` · `02` · `03` — rendered by `TightOpenTightStages.jsx` |
-| `costOfPower.key` · `.powers` | `power-key.webp` · `power-cards/*.webp` — rendered by `FeaturedGallery` |
-| `asynchronous.media` | **Outstanding** — turn-replay sequence or animation |
+| `board.stages` | `tight-open-tight01.webp` · `02` · `03` — rendered by `TightOpenTightStages.jsx`, captioned as a conceptual match rhythm |
+| `powers.media` | `power-key-steal.webp` (506×70) — the Steal row of the power key, shown at about its own size |
 
-`one-turn01.webp` is left over from the single-image version of the turn sequence
-and is no longer imported by anything. Safe to delete.
+Not on the page:
 
-A folder per set, as with `one-turn/` and `power-cards/`, once a slot holds more
-than a couple of images — the arrangement components (`MediaGallery`,
-`FeaturedGallery`, `MediaRail`) all take a plain array, so the folder and the
-content array stay in step.
-
-Everything in a gallery, a featured gallery, or a rail is `expandable`: opening
-one hands the whole set to the viewer. None of them ship a separate `fullSrc`
-yet, so the lightbox shows the same file the page loaded — worth adding for any
-image detailed enough that a reader would want to zoom past display resolution.
+- `power-key.webp` and `power-cards/*.webp`. The key and the cards disagree on
+  Draw (−15 / −10) and Freeze (−20 / −15); both agree on Steal at −5, which is
+  why the section ships with the Steal row alone. Restore the full key only
+  after checking the shipped build or the final balance sheet.
+- `hero.webp` (the phone in hand) and `preview-mesa.webp`, replaced by the
+  opening board.
+- The animated turn (`mesa-turn-sequence.webp` in the package): four of the
+  existing instructional stills, not a recording of the opponent replay, so
+  the five-screen rail stays.
+- `one-turn01.webp`, left over from the single-image version of the turn
+  sequence. Safe to delete.
