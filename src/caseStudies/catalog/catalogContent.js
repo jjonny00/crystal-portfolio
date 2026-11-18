@@ -45,22 +45,21 @@ export const catalogContent = {
       'Hero media — bleeds off the right edge at desktop, full width above the copy on mobile',
       'Placeholder standing in for a case study hero image.'
     ),
-  },
-
-  overview: {
-    title: 'CaseStudyOverview',
-    body: [
-      'Narrative and media in a content column, with a metadata rail alongside. The rail starts level with the first line of body copy rather than the heading.',
-      'On mobile the rail moves **ahead** of the narrative and becomes a compact two-column grid — the one section whose reading order deliberately differs from desktop.',
-      ...bodyLong.slice(1),
-    ],
     metadata: [
       { label: 'Role', values: ['Creator', 'Creative Direction', 'Systems + UI/UX'] },
       { label: 'Team', values: ['Product Owner', 'UX Researcher', 'Developer ×2'] },
       { label: 'Genre', values: ['Placeholder Value'] },
       { label: 'Mode', values: ['Placeholder Value'] },
       { label: 'Platform', values: ['Placeholder Value'] },
-      { label: 'Outcome', values: ['A longer metadata value, to show how the rail wraps'] },
+      { label: 'Outcome', values: ['A longer metadata value, to show how an entry wraps'] },
+    ],
+  },
+
+  overview: {
+    title: 'CaseStudyOverview',
+    body: [
+      'Narrative and media in a content column. The project metadata is not here: it sits under the hero’s intro in two columns (`CaseStudyHero`’s `metadata`).',
+      ...bodyLong.slice(1),
     ],
     gallery: [
       media('Gallery item 1', 'Placeholder gallery image one.'),

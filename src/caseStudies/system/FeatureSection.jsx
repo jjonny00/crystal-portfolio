@@ -3,8 +3,8 @@
 // Full-width visual centrepiece: centred title, short intro, an unrestricted
 // content slot, caption, and an optional takeaway.
 //
-//   <FeatureSection title="Tight, Open, Tight" intro={…} caption={…} takeaway={…}>
-//     <TightOpenTightDiagram />
+//   <FeatureSection title="The Board Teaches the Opening…" intro={…} caption={…} takeaway={…}>
+//     <TightOpenTightStages stages={…} />
 //   </FeatureSection>
 //
 // The stage is intentionally a blank canvas: its height comes from whatever it

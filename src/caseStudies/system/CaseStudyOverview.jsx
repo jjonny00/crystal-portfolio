@@ -1,22 +1,17 @@
 // src/caseStudies/system/CaseStudyOverview.jsx
 //
-// Narrative + media in the content column, project metadata in a rail.
-//
-// Desktop: heading over the narrative, rail starting level with the first line
-// of body copy. Mobile: the rail moves ahead of the narrative and becomes the
-// compact two-column grid from the reference. Same markup, different grid.
+// Narrative + media in the content column. The project's metadata lives in the
+// hero (CaseStudyHero's `metadata`), not here.
 
 import React, { useId } from 'react';
 import CaseStudySection from './CaseStudySection';
 import CaseStudyBody from './CaseStudyText';
-import CaseStudyMetadata from './CaseStudyMetadata';
 import { renderMedia } from './CaseStudyMedia';
 
 const CaseStudyOverview = ({
   title,
   body = null,
   media = null,
-  metadata = null,
   tone = 'b',
   id = null,
   children = null,
@@ -44,8 +39,6 @@ const CaseStudyOverview = ({
         )}
         {children}
       </div>
-
-      <CaseStudyMetadata metadata={metadata} className="cs-overview__rail" />
     </CaseStudySection>
   );
 };

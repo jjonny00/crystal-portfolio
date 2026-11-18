@@ -1,15 +1,17 @@
 // src/caseStudies/system/CaseStudyHero.jsx
 //
-// Opening section: project name, case study title, intro copy, hero media.
+// Opening section: project name, case study title, intro copy, hero media, and
+// the project's metadata (role, team, platform…).
 //
 // Desktop places the project name across the full width, the copy in a narrow
-// left column, and the media bleeding off the right edge. Mobile is a different
-// composition, not a shrunk grid: project name, case study title, media, copy.
-// Both come out of the same markup — only the grid areas change.
+// left column with the metadata under it in two columns, and the media
+// bleeding off the right edge. Mobile is a different composition, not a shrunk grid:
+// project name, case study title, media, copy, then the metadata. Both come out of the same markup — only the grid areas change.
 
 import React, { useId } from 'react';
 import CaseStudySection from './CaseStudySection';
 import CaseStudyBody from './CaseStudyText';
+import CaseStudyMetadata from './CaseStudyMetadata';
 import { renderMedia } from './CaseStudyMedia';
 
 const CaseStudyHero = ({
@@ -17,6 +19,11 @@ const CaseStudyHero = ({
   title,
   intro = null,
   media = null,
+  /** [{ label, values }] — see CaseStudyMetadata. */
+  metadata = null,
+  /** A full-width row under the hero (a compact gallery, say), on desktop and
+   *  phone alike. */
+  after = null,
   tone = 'a',
   /** 'none' lets the hero sit directly on the 3D scene. See CaseStudySection. */
   background = 'tone',
@@ -50,6 +57,11 @@ const CaseStudyHero = ({
           {renderMedia(media, { priority: true, fit: 'cover' })}
         </div>
       )}
+
+      {/* Under the h1, so its hidden heading is an h2 like every section's. */}
+      <CaseStudyMetadata metadata={metadata} className="cs-hero__meta" headingAs="h2" />
+
+      {after && <div className="cs-hero__after">{after}</div>}
     </CaseStudySection>
   );
 };
