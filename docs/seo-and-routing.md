@@ -13,6 +13,7 @@ previews, and deep links that land in place.
 | `/work/secondsentence/devlog/<entry>` | that devlog entry, inside Second Sentence's case study (its subpath); the fast path, as a case study | yes (published entries) |
 | `/work/secondsentence/feed.xml` | the devlog's RSS feed (a static file) | n/a |
 | `/about` | About, after the loader, no intro | canonical → `/` |
+| `/about/comics` | the art wall (Comics & Other Bad Ideas), readable immediately; the scene loads behind it onto About, as the case-study fast path does | yes |
 | `/work` | overview, after the loader, no intro | canonical → `/` |
 | anything else | `404.html` (static, no app), served with a 404 status by Netlify | no |
 

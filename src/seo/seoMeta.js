@@ -176,6 +176,22 @@ export const getRouteMeta = (route) => {
     };
   }
 
+  // The art wall is a page of its own (a layer over About on the live site),
+  // with its own canonical.
+  if (route?.artWall) {
+    return {
+      title: `Comics & Other Bad Ideas${TITLE_SUFFIX}`,
+      description:
+        'Comics, posters and sketchbook pages by Jon Shaw, a systems and interaction designer in Louisville, Kentucky.',
+      canonical: absoluteUrl(route.path),
+      robots: 'index, follow',
+      image: absoluteUrl(DEFAULT_SHARE_IMAGE),
+      imageAlt: SITE_NAME,
+      type: 'website',
+      jsonLd: graph(personNode(), websiteNode()),
+    };
+  }
+
   // /about and /work are scroll positions on the home page, not pages of their
   // own: the same content, so they point their canonical at / rather than
   // competing with it as near-duplicates. (Canonical alone; pairing it with

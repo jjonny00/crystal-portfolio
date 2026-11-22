@@ -7,6 +7,7 @@
 //   a case study    the real case study, rendered through the same overlay and
 //                   components the app uses, so it is the page itself on first
 //                   paint and the app takes it over without a visible change
+//   the art wall    likewise: the real wall, through the same layer the app uses
 //   anything else   the page's copy as plain semantic HTML: name, role, intro,
 //                   every project linking to its own URL, and About. Hidden
 //                   from sighted readers (the loader and then the scene are what
@@ -17,18 +18,22 @@ import React from 'react';
 import { renderToString } from 'react-dom/server';
 import projects from '../data/projects';
 import {
+  ABOUT_BLUESKY,
   ABOUT_PARAGRAPHS,
+  ABOUT_RESUME,
   ABOUT_STATS,
   ABOUT_TITLE,
+  ART_WALL_TITLE,
   HERO_BODY_COPY,
   HERO_HEADLINE_LINES,
 } from '../data/siteCopy';
+import ArtWallLayer from '../artWall/ArtWallLayer';
 import CaseStudyOverlay, { preloadCaseStudy } from '../caseStudies/CaseStudyOverlay';
 import { ARRIVAL_EXIT_LABEL } from '../caseStudies/system/caseStudyExit';
 import { foregroundColorForTone, normalizeCaseStudyColors } from '../caseStudies/system/caseStudyTheme';
 import Navigation from '../components/ui/Navigation';
 import { NAVIGATION_DESTINATIONS } from '../navigation/navigationIntent';
-import { getPrerenderRoutes, getProjectBySlug, projectPath } from '../navigation/routes';
+import { ART_WALL_PATH, getPrerenderRoutes, getProjectBySlug, projectPath } from '../navigation/routes';
 import { devlogFeedPath, devlogShareImagePath, getRouteMeta, renderHeadTagsHtml } from './seoMeta';
 import { PERSON, SITE_NAME, SITE_URL } from './site';
 import { devlogEntries, getEntryModulePath, preloadEntryBody } from '../devlog/entries';
@@ -72,6 +77,11 @@ const AboutContent = ({ headingLevel: Heading = 'h2' }) => (
     {ABOUT_PARAGRAPHS.map((paragraph) => (
       <p key={paragraph.slice(0, 24)}>{paragraph}</p>
     ))}
+    <p>
+      <a href={ABOUT_RESUME.href}>{ABOUT_RESUME.label}</a> ·{' '}
+      <a href={ABOUT_BLUESKY.href}>{ABOUT_BLUESKY.label}</a> ·{' '}
+      <a href={ART_WALL_PATH}>{ART_WALL_TITLE}</a>
+    </p>
     <ul>
       {ABOUT_STATS.map((stat) => (
         <li key={stat.value}>
@@ -157,6 +167,18 @@ export async function renderRoute(route) {
     );
     const entryModule = route.entrySlug ? getEntryModulePath(route.entrySlug) : null;
     return { html, visible: true, caseStudySlug, modules: entryModule ? [entryModule.slice(1)] : [] };
+  }
+
+  // The art wall: its own page on first paint, with the app's stylesheets
+  // (`shell`), as a case study has.
+  if (route?.artWall) {
+    const html = renderToString(
+      <>
+        <Navigation activeLabel="ABOUT" onHomeClick={noop} onWorkClick={noop} onAboutClick={noop} onContactClick={noop} />
+        <ArtWallLayer open initiallyOpen onBack={noop} />
+      </>
+    );
+    return { html, visible: true, caseStudySlug: null, shell: true };
   }
 
   if (route?.destination === NAVIGATION_DESTINATIONS.PROJECT) {

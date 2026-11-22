@@ -1,0 +1,1 @@
+Early Playdate prototype. The crank controls the angle of the mage’s attack.

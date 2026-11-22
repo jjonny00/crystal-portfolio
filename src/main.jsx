@@ -87,6 +87,15 @@ async function boot() {
   // The scene files wait for the loader's fonts, so those get the connection first.
   startBootDownloads({ after: loaderFontsReady });
 
+  // The art wall (/about/comics) is on screen from the prerendered HTML too,
+  // with no loader in front of it: the app mounts straight onto it.
+  if (route?.artWall) {
+    setLoaderPresentation({ shown: false });
+    const { default: App } = await appModule;
+    root.render(<Root appModule={appModule} initialApp={App} />);
+    return;
+  }
+
   if (route?.destination !== NAVIGATION_DESTINATIONS.CASE_STUDY) {
     root.render(<Root appModule={appModule} />);
     return;
