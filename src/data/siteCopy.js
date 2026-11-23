@@ -33,7 +33,7 @@ export const ABOUT_PARAGRAPHS = [
 
 // Headline (accent, set in capitals by the stylesheet) and its supporting line.
 export const ABOUT_STATS = [
-  { value: '20 Traders Funded', label: 'Through FundSeeder as of October 2026' },
+  { value: '20 Traders Seeded', label: 'Through FundSeeder as of October 2026' },
   { value: '15 Years · 30+ Person Team', label: 'Building and leading a multidisciplinary studio' },
   { value: '150K Downloads · Top 5 Free Game', label: 'Mesa’s first week on iOS' },
 ];

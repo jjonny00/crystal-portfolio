@@ -8,6 +8,13 @@ import { updateStage } from '../loader/loadProgress';
 // Single manager instance to avoid multiple tests
 const manager = new PerformanceManagerV2();
 
+/**
+ * The device tier once the benchmark (or its cached result) has decided it.
+ * Read-only: it waits for the app's own run rather than starting one, so it is
+ * safe from any component (LoopVideo).
+ */
+export const whenPerformanceTierKnown = () => manager.whenReady();
+
 export const usePerformanceV2 = () => {
   const [profile, setProfile] = useState(manager.getProfile());
   const [tier, setTier] = useState(manager.getTier());

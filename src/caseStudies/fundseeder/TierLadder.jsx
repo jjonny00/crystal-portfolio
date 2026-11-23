@@ -39,13 +39,13 @@ const TierLadder = ({ steps = [], gate = 'Review', phases = {}, alt = '' }) => {
   return (
     <div className="fs-ladder" role="img" aria-label={alt}>
       <p
-        className="type-caption-caps fs-ladder__phase"
+        className="type-caption fs-ladder__phase"
         style={{ gridColumn: `1 / span ${performance.length}` }}
       >
         {phases.performance}
       </p>
       <p
-        className="type-caption-caps fs-ladder__phase"
+        className="type-caption fs-ladder__phase"
         style={{ gridColumn: `${performance.length + 2} / span ${selection.length}` }}
       >
         {phases.selection}
@@ -54,7 +54,7 @@ const TierLadder = ({ steps = [], gate = 'Review', phases = {}, alt = '' }) => {
       {performance.map((step, index) => renderStep(step, index + 1))}
 
       <div className="fs-ladder__gate">
-        <span className="type-caption-caps fs-ladder__gate-label">{gate}</span>
+        <span className="type-caption fs-ladder__gate-label">{gate}</span>
       </div>
 
       {selection.map((step) => renderStep(step, performance.length + 1))}

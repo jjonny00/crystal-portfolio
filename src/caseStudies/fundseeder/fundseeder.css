@@ -1,53 +1,13 @@
 /* FundSeeder-specific visuals. Only custom diagram styling belongs here —
-   layout, gutters, and typography come from the case-study system.
+   layout, gutters, typography and media treatment come from the case-study
+   system.
 
-   The ladder-and-rivals composition and the stacked interface captures sit in
-   feature stages that run to within --cs-bleed-inset of the viewport edge, so
-   each pads itself back in to the page gutter. The flow diagram and the pinned
-   table sit in content columns, already on the gutter. */
-
-/* --------------------------------------------------------------------------
-   Tiers and closest competition (NextStepComposition, F04's stage)
-   -------------------------------------------------------------------------- */
-
-.fs-next {
-  display: grid;
-  justify-items: center;
-  gap: clamp(32px, 4vw, 72px);
-  padding-inline: calc(var(--cs-edge) - var(--cs-bleed-inset));
-}
-
-.fs-next__ladder {
-  width: 100%;
-}
-
-/* The composition already pads to the gutter, so the ladder takes none of
-   its own here. */
-.fs-next .fs-ladder {
-  padding-inline: 0;
-}
-
-/* The ranking card: the actual dashboard card, at the width its rows read at. */
-.fs-next__rivals {
-  width: 100%;
-  max-width: 680px;
-}
-
-/* Its caption is already on the gutter; the stage's own caption padding (0,4,0
-   in caseStudy.css's mobile rules) must not apply twice. */
-.fs-next .cs-media .cs-media__caption.cs-caption.type-caption {
-  padding-inline: 0;
-}
-
-@media (max-width: 767.98px) {
-  /* The feature stage runs edge to edge on phones. */
-  .fs-next {
-    padding-inline: var(--cs-edge);
-  }
-}
+   The ladder sits in a feature stage that runs to within --cs-bleed-inset of
+   the viewport edge, so it pads itself back in to the page gutter. The paths
+   diagram sits in the overview's content column, already on the gutter. */
 
 /* --------------------------------------------------------------------------
-   Tier ladder (tiers FeatureSection)
+   Tier ladder (TierLadder, the tiers FeatureSection on mint)
    -------------------------------------------------------------------------- */
 
 .fs-ladder {
@@ -64,7 +24,9 @@
   row-gap: clamp(14px, 2vw, 32px);
   max-width: 1280px;
   margin-inline: auto;
-  padding-inline: calc(var(--cs-edge) - var(--cs-bleed-inset));
+  /* Back to the page gutter inside the bleeding stage, with a little headroom
+     so the top step's badge and its shadow are never cut by the stage. */
+  padding: clamp(8px, 1vw, 16px) calc(var(--cs-edge) - var(--cs-bleed-inset)) 0;
   color: var(--cs-fg);
 }
 
@@ -98,33 +60,44 @@
   right: 0;
 }
 
+/* Each badge sits on its own step: no gap, and it overlaps the riser's top a
+   little so it stands on it rather than floating above. */
 .fs-ladder__step {
   grid-row: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(6px, 0.9vw, 14px);
+  min-width: 0;
 }
 
 .fs-ladder__badge {
+  position: relative;
+  z-index: 1;
   display: block;
-  width: var(--fs-badge);
-  height: var(--fs-badge);
+  width: min(var(--fs-badge), 100%);
+  height: auto;
+  aspect-ratio: 1;
+  margin-bottom: calc(var(--fs-badge) * -0.12);
   border-radius: 50%;
   box-shadow: 0 clamp(4px, 0.6vw, 10px) clamp(10px, 1.6vw, 26px)
     color-mix(in srgb, var(--cs-color-b) 30%, transparent);
 }
 
-/* The staircase: each riser is one step taller than the last. S stands on the
+/* The staircase: each riser is one step taller than the last, a clear tint of
+   the ink with an outline, so the climb reads against mint. S stands on the
    top step in solid ink, where D–A are tinted — reached, not climbed. */
 .fs-ladder__riser {
+  box-sizing: border-box;
   width: 100%;
-  height: calc(var(--fs-rise) * var(--fs-step));
+  height: calc(var(--fs-rise) * var(--fs-step) + var(--fs-badge) * 0.12);
+  border: 1.5px solid color-mix(in srgb, var(--cs-fg) 55%, transparent);
+  border-bottom: 0;
   border-radius: clamp(3px, 0.4vw, 6px) clamp(3px, 0.4vw, 6px) 0 0;
-  background-color: color-mix(in srgb, var(--cs-fg) 14%, transparent);
+  background-color: color-mix(in srgb, var(--cs-fg) 28%, transparent);
 }
 
 .fs-ladder__step[data-phase='selection'] .fs-ladder__riser {
+  border-color: var(--cs-fg);
   background-color: var(--cs-fg);
 }
 
@@ -173,154 +146,82 @@
 }
 
 /* --------------------------------------------------------------------------
-   Stacked interface captures (StackedMedia, F05 and F07)
+   One strategy, two systems (StrategyPaths, the overview's media)
    -------------------------------------------------------------------------- */
 
-/* Left-aligned on the gutter, like the section's copy; each item caps itself
-   at its own measure (--fs-stack-max), so supporting views stay smaller than
-   the lead instead of being stretched to it. */
-.fs-stack {
+.fs-paths {
+  --fs-neutral: color-mix(in srgb, var(--cs-fg) 45%, transparent);
+
   display: grid;
-  justify-items: start;
-  gap: clamp(28px, 3.2vw, 56px);
-  padding-inline: calc(var(--cs-edge) - var(--cs-bleed-inset));
+  gap: clamp(12px, 1.2vw, 18px);
+  max-width: 860px;
+  margin: 0;
+  color: var(--cs-fg);
 }
 
-.fs-stack__item {
+.fs-paths__caption {
+  color: color-mix(in srgb, var(--cs-fg) 78%, transparent);
+}
+
+.fs-paths__svg {
+  display: block;
   width: 100%;
-  max-width: var(--fs-stack-max, 1400px);
+  height: auto;
+  overflow: visible;
 }
 
-/* Captions sit under their own image, flush with it. */
-.fs-stack .cs-media .cs-media__caption.cs-caption.type-caption {
-  padding-inline: 0;
-  text-align: start;
+.fs-paths__svg--stacked {
+  display: none;
 }
 
 @media (max-width: 767.98px) {
-  /* Edge to edge on phones, where every pixel of a dense screen counts; the
-     captions come back to the gutter. */
-  .fs-stack {
-    padding-inline: 0;
+  .fs-paths__svg--across {
+    display: none;
   }
 
-  .fs-stack .cs-media .cs-media__caption.cs-caption.type-caption {
-    padding-inline: var(--cs-edge);
+  .fs-paths__svg--stacked {
+    display: block;
+    max-width: 420px;
   }
 }
 
-/* --------------------------------------------------------------------------
-   What one added strategy sets off (RankingFlow, the overview's media)
-   -------------------------------------------------------------------------- */
-
-.fs-flow,
-.fs-pinned {
-  --fs-muted: color-mix(in srgb, var(--cs-fg) 78%, transparent);
-
-  margin: 0;
-  color: var(--cs-fg);
+.fs-paths__node {
+  fill: color-mix(in srgb, var(--cs-fg) 6%, transparent);
+  stroke: var(--fs-neutral);
+  stroke-width: 2;
 }
 
-.fs-flow p {
-  margin: 0;
+.fs-paths__line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.fs-flow {
-  display: grid;
-  gap: clamp(12px, 1.2vw, 18px);
-  max-width: 720px;
+.fs-paths__line--link {
+  stroke: var(--fs-neutral);
+  stroke-dasharray: 7 7;
+  color: var(--fs-neutral);
 }
 
-.fs-flow__label,
-.fs-pinned__label {
-  color: var(--fs-muted);
+.fs-paths__title {
+  fill: currentColor;
 }
 
-/* A node: a hairline box with a heavier rule down its leading edge. */
-.fs-flow__node {
-  display: grid;
-  gap: 0.45em;
-  padding: clamp(14px, 1.3vw, 22px) clamp(16px, 1.5vw, 26px);
-  border: 1px solid color-mix(in srgb, var(--cs-fg) 45%, transparent);
-  border-inline-start: 4px solid var(--cs-fg);
-  border-radius: 2px;
+.fs-paths__label,
+.fs-paths__link-label {
+  fill: color-mix(in srgb, var(--cs-fg) 82%, transparent);
 }
 
-.fs-flow__node .type-body-sm {
-  color: var(--fs-muted);
+.fs-paths__link-label {
+  font-style: italic;
 }
 
-.fs-flow__term {
-  color: var(--cs-fg);
-  font-weight: inherit;
+.fs-paths__s {
+  fill: currentColor;
 }
 
-/* The connector: a stroke down from the first node, its note beside it, and
-   the arrow into the second. */
-.fs-flow__bridge {
-  position: relative;
-  margin-inline-start: clamp(18px, 1.6vw, 26px);
-  padding: 0.6em 0 1.6em clamp(14px, 1.2vw, 20px);
-  border-inline-start: 1.5px solid currentColor;
-  color: var(--fs-muted);
-}
-
-.fs-flow__bridge::after {
-  content: '';
-  position: absolute;
-  inset-block-end: -1px;
-  inset-inline-start: -6px;
-  border-top: 8px solid var(--cs-fg);
-  border-inline: 5px solid transparent;
-}
-
-/* --------------------------------------------------------------------------
-   The pinned row (PinnedTable, beside the comparison copy)
-   -------------------------------------------------------------------------- */
-
-/* The split's media column bleeds off the right edge at every width; the
-   table is text, so it comes back to the gutter. */
-.fs-pinned {
-  display: grid;
-  gap: clamp(12px, 1.2vw, 18px);
-  max-width: calc(640px + var(--cs-edge));
-  padding-inline-end: var(--cs-edge);
-}
-
-.fs-pinned__table {
-  inline-size: 100%;
-  border-collapse: collapse;
-  text-align: start;
-  font-variant-numeric: tabular-nums;
-}
-
-.fs-pinned__table th,
-.fs-pinned__table td {
-  padding: 0.7em 0.6em;
-  border-block-end: 1px solid color-mix(in srgb, var(--cs-fg) 30%, transparent);
-  text-align: start;
-}
-
-.fs-pinned__table :is(th, td):first-child {
-  padding-inline-start: 0;
-}
-
-.fs-pinned__table :is(th, td):last-child {
-  padding-inline-end: 0;
-  text-align: end;
-}
-
-.fs-pinned__table th {
-  color: var(--fs-muted);
-}
-
-.fs-pinned__table tbody td {
-  color: var(--fs-muted);
-}
-
-/* The trader's own row, held beneath the field: full ink, a heavier rule. */
-.fs-pinned__table tfoot td {
-  border-block-start: 3px solid var(--cs-fg);
-  border-block-end: 0;
-  color: var(--cs-fg);
+.fs-paths__s-mark {
+  fill: var(--cs-bg);
 }

@@ -11,12 +11,23 @@
 //     fit="contain"
 //   />
 //
-// It also accepts children instead of a src, which is how custom diagrams,
-// video, and interactive visuals enter a section without the section needing to
-// know anything about them.
+// It also accepts children instead of a src, which is how custom diagrams and
+// interactive visuals enter a section without the section needing to know
+// anything about them.
+//
+// Video is a descriptor like an image: `video` (the files' base path, see
+// LoopVideo.jsx) in place of `src`, with `alt` as its label. It gets the same
+// aspect-ratio reservation, lazy poster and caption, so every section takes it
+// in its ordinary media prop.
+//
+//   frame="screen"  a product capture's frame: small radius, hairline, shadow
+//                   (the default for video)
+//   frame="none"    nothing around it at all: hard edges, no radius, shadow or
+//                   border, like any photo
 
 import React from 'react';
 import PlaceholderMedia from './PlaceholderMedia';
+import LoopVideo from './LoopVideo';
 import { useMediaViewer } from './MediaViewer';
 import { CaseStudyInline } from './CaseStudyText';
 import { createLogger } from '../../utils/logger';
@@ -34,6 +45,10 @@ export const isMediaDescriptor = (value) =>
 
 const CaseStudyMedia = ({
   src = null,
+  /** A looping video's base path (LoopVideo.jsx), in place of `src`. */
+  video = null,
+  /** 'screen' | 'none'. Omit for the slot's default (video: 'screen'). */
+  frame = null,
   /** Full-resolution source used only by the enlarged view. */
   fullSrc = null,
   srcSet = null,
@@ -61,8 +76,10 @@ const CaseStudyMedia = ({
   const viewer = useMediaViewer();
 
   const hasChildren = Boolean(children);
-  const hasImage = Boolean(src) && !hasChildren;
+  const hasVideo = Boolean(video) && !hasChildren;
+  const hasImage = Boolean(src) && !hasChildren && !hasVideo;
   const canExpand = expandable && hasImage;
+  const frameStyleName = frame || (hasVideo ? 'screen' : null);
 
   if (isDev && hasImage && !alt) {
     logger.warn(`missing alt text for "${src}"`);
@@ -79,6 +96,8 @@ const CaseStudyMedia = ({
   let body;
   if (hasChildren) {
     body = children;
+  } else if (hasVideo) {
+    body = <LoopVideo base={video} label={alt} priority={priority} />;
   } else if (hasImage) {
     body = (
       <img
@@ -101,7 +120,7 @@ const CaseStudyMedia = ({
     body = <PlaceholderMedia label={placeholder || alt} />;
   }
 
-  const frame = (
+  const frameEl = (
     <div className={frameClass} style={frameStyle}>
       {body}
     </div>
@@ -125,7 +144,11 @@ const CaseStudyMedia = ({
   };
 
   return (
-    <figure className={`cs-media ${className}`.trim()} {...rest}>
+    <figure
+      className={`cs-media ${className}`.trim()}
+      data-frame={frameStyleName || undefined}
+      {...rest}
+    >
       {canExpand ? (
         <button
           type="button"
@@ -133,10 +156,10 @@ const CaseStudyMedia = ({
           onClick={handleExpand}
           aria-label={alt ? `Enlarge image: ${alt}` : 'Enlarge image'}
         >
-          {frame}
+          {frameEl}
         </button>
       ) : (
-        frame
+        frameEl
       )}
 
       {caption && (

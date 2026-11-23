@@ -157,7 +157,9 @@ not the projects either side have case studies of their own.
 
 ## Media
 
-`CaseStudyMedia` is the single media primitive: responsive sources, `contain` /
+`CaseStudyMedia` is the single media primitive (images, and looping video by a
+`video` base path: see `LoopVideo.jsx`; `frame="screen" | "none"` for
+product captures): responsive sources, `contain` /
 `cover`, aspect-ratio reservation (no layout shift), lazy loading below the fold,
 optional enlargement, and a `fullSrc` used only by the enlarged view.
 `MediaGallery` arranges several of them (`2-up`, `3-up`, `stacked`, collapsing to
