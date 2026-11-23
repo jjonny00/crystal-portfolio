@@ -4,6 +4,10 @@
 // whole page: which sections run, in what order, in which tone, and which
 // custom visual (if any) goes in a section's content slot. Everything else is
 // content in mesaContent.js.
+//
+// Six sections, the finishing pass (November 2026). Tone rhythm: every section sits on colour B except two
+// that paint no background, so the crystal shows through — the hero, and the
+// board's progression, the chapter where the game's structure is the subject.
 
 import React from 'react';
 import {
@@ -15,9 +19,9 @@ import {
   FeatureSection,
   ConclusionSection,
   MediaGallery,
-  FeaturedGallery,
   MediaRail,
 } from '../system';
+import CaseStudyMedia from '../system/CaseStudyMedia';
 import TightOpenTightStages from './TightOpenTightStages';
 import { mesaContent } from './mesaContent';
 
@@ -30,9 +34,10 @@ const MesaCaseStudy = ({ project, onClose }) => {
       label={`${c.projectName} case study: ${c.title}`}
       onClose={onClose}
     >
-      {/* No background of its own — the hero sits on the crystal facet, which is
-          already this project's colour. Keeps the registry's entry: 'reveal'
-          honest: nothing covers the scene until the reader scrolls past it. */}
+      {/* No background of its own — the hero sits on the crystal facet,
+          which is already this project's colour. Keeps the registry's entry:
+          'reveal' honest: nothing covers the scene until the reader scrolls
+          past it. */}
       <CaseStudyHero
         tone="a"
         background="none"
@@ -40,13 +45,13 @@ const MesaCaseStudy = ({ project, onClose }) => {
         title={c.title}
         intro={c.hero.intro}
         media={c.hero.media}
+        metadata={c.hero.metadata}
       />
 
       <CaseStudyOverview
         tone="b"
         title={c.overview.title}
         body={c.overview.body}
-        metadata={c.overview.metadata}
         media={
           <MediaGallery
             layout="3-up"
@@ -57,10 +62,10 @@ const MesaCaseStudy = ({ project, onClose }) => {
         }
       />
 
-      {/* The five screens of one turn, read left to right. Phone screenshots
-          are tall, so a rail at a shared height carries them where a stage
-          spanning the width could only hold one: on desktop the five fit
-          across, and on a phone the row becomes the swipe it already was. */}
+      {/* The five screens of one turn, read left to right. Phone
+          screenshots are tall, so a rail at a shared height carries them where
+          a stage spanning the width could only hold one: on desktop the five
+          fit across, and on a phone the row becomes the swipe it already was. */}
       <SequenceSection
         tone="b"
         title={c.turnSequence.title}
@@ -70,69 +75,39 @@ const MesaCaseStudy = ({ project, onClose }) => {
         <MediaRail items={c.turnSequence.steps} mobileHeight="126vw" />
       </SequenceSection>
 
-      <SplitSection
-        tone="b"
-        direction="text-left"
-        title={c.boardTeaches.title}
-        body={c.boardTeaches.body}
-        media={{ ...c.boardTeaches.media, caption: c.boardTeaches.caption }}
-      />
-
-      {/* Like the hero, this one sits on the crystal facet rather than painting
-          over it — the arc of the match, read against the project's own colour.
-          Two things follow, both already true for Mesa: the registry entry must
-          be 'reveal' (or the root backstop would paint over the scene), and the
-          overlay keeps the renderer awake whenever a section like this is near
-          the viewport, so it never scrolls back onto a frozen, empty frame. */}
+      {/* Like the hero, this sits on the crystal facet rather than painting
+          over it. Two things follow, both already true for Mesa: the registry
+          entry must be 'reveal', and the overlay keeps the renderer awake
+          whenever a section like this is near the viewport. */}
       <FeatureSection
         tone="a"
         background="none"
         align="start"
-        title={c.tightOpenTight.title}
-        intro={c.tightOpenTight.intro}
-        caption={c.tightOpenTight.caption}
-        takeaway={c.tightOpenTight.takeaway}
+        title={c.board.title}
+        intro={c.board.intro}
+        caption={c.board.caption}
       >
-        <TightOpenTightStages stages={c.tightOpenTight.stages} />
+        <TightOpenTightStages stages={c.board.stages} />
       </FeatureSection>
 
-      {/* The power key and the six ability cards are one exhibit: the summary
-          the player reads mid-match, and the detail that sits behind it.
-          FeaturedGallery holds that relationship; the section only places it.
-          A split rather than a stage: the exhibit is a portrait lead beside two
-          rows of cards, so its height follows its width, and given the whole
-          stage it dwarfs the section. In the media column it fills the width it
-          is given at a height the copy beside it can live with. */}
+      {/* Steal's row of the power key, beside the copy, at about its own
+          size (mesa.css): a small crop, not a stage. */}
       <SplitSection
         tone="b"
         direction="text-left"
-        title={c.costOfPower.title}
-        body={c.costOfPower.body}
+        title={c.powers.title}
+        body={c.powers.body}
         media={
-          <FeaturedGallery
-            featured={c.costOfPower.key}
-            items={c.costOfPower.powers}
-            columns={3}
-            caption={c.costOfPower.caption}
-            /* The column is the measure here, so drop the standalone cap. */
-            maxWidth="none"
-          />
+          <CaseStudyMedia className="mesa-steal" {...c.powers.media} />
         }
       />
 
-      <SequenceSection
-        tone="b"
-        title={c.asynchronous.title}
-        intro={c.asynchronous.intro}
-        media={c.asynchronous.media}
-        caption={c.asynchronous.caption}
-      />
-
+      {/* The ending carries the returning-player point; no outcome tiles (the
+          launch figures are in the hero). */}
       <ConclusionSection
         tone="b"
-        outcomes={c.conclusion.outcomes}
+        lessonsTitle={c.conclusion.lessonsTitle}
         lessons={c.conclusion.lessons}
-        takeaway={c.conclusion.takeaway}
       />
     </CaseStudyPage>
   );

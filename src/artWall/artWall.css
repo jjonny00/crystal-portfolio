@@ -1,0 +1,224 @@
+/* src/artWall/artWall.css — the art wall (ArtWallLayer.jsx).
+
+   A quiet page so the art supplies the colour: the site's own dark, tight even
+   gutters, the artwork at its natural proportions. Type comes from the type
+   scale (type.css); only colour and spacing are set here. */
+
+.art-wall {
+  --art-wall-ink: #fffcee;
+  --art-wall-muted: rgb(from #fffcee r g b / 0.72);
+  --art-wall-accent: #64ffda;
+  --art-wall-gap: 16px;
+
+  position: fixed;
+  inset: 0;
+  /* With the case studies' layer (CaseStudyOverlay's 9000): under the nav
+     (10000) and the lightbox (9999). */
+  z-index: 9000;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background-color: var(--page-bg);
+  color: var(--art-wall-ink);
+  opacity: 0;
+  transition: opacity 320ms ease;
+}
+
+.art-wall[data-state='open'] {
+  opacity: 1;
+}
+
+.art-wall[data-instant] {
+  transition: none;
+}
+
+.art-wall__page {
+  box-sizing: border-box;
+  padding: calc(var(--page-nav-bottom) + clamp(20px, 3vw, 44px)) var(--page-edge)
+    calc(clamp(48px, 6vw, 96px) + env(safe-area-inset-bottom, 0px));
+}
+
+.art-wall__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  color: var(--art-wall-muted);
+  text-decoration: none;
+}
+
+.art-wall__back:hover {
+  color: var(--art-wall-accent);
+}
+
+.art-wall__title {
+  margin: clamp(10px, 1.2vw, 18px) 0 0;
+  color: var(--art-wall-ink);
+}
+
+/* What the wall is, and roughly when: one line under the title. */
+.art-wall__intro {
+  max-width: 62ch;
+  margin: 0.5em 0 clamp(22px, 2.6vw, 40px);
+  color: var(--art-wall-muted);
+}
+
+/* A band under the site nav, which is drawn above this layer: blurred, so the
+   wordmark and links read over whatever art scrolls under them. No tint; the
+   blur alone does it. Sticky within the layer's own scroll, and it takes no
+   space. */
+.art-wall__scrim {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: calc(var(--page-nav-bottom) + 12px);
+  margin-bottom: calc(-1 * (var(--page-nav-bottom) + 12px));
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent);
+  pointer-events: none;
+}
+
+.art-wall__title:focus {
+  outline: none;
+}
+
+/* ---- The wall ---- */
+
+/* Four columns on a wide desktop, three in between, two on a phone
+   (--art-wall-columns, ArtWallLayer.jsx). Until the tiles are measured (the
+   prerendered page), a plain grid of those columns, in rows. */
+.art-wall__grid {
+  --art-wall-column-width: calc(
+    (100% - (var(--art-wall-columns, 4) - 1) * var(--art-wall-gap)) / var(--art-wall-columns, 4)
+  );
+
+  display: grid;
+  grid-template-columns: repeat(var(--art-wall-columns, 4), minmax(0, 1fr));
+  gap: var(--art-wall-gap);
+  align-items: start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Measured: row-first masonry. Each tile in the column the layout chose, at
+   the height it measured (placeTiles in ArtWallLayer.jsx). */
+.art-wall__grid[data-laid-out] {
+  position: relative;
+  display: block;
+}
+
+.art-wall__cell {
+  margin: 0;
+  min-width: 0;
+}
+
+.art-wall__grid[data-laid-out] > .art-wall__cell {
+  position: absolute;
+  left: calc(var(--art-wall-column, 0) * (var(--art-wall-column-width) + var(--art-wall-gap)));
+  width: var(--art-wall-column-width);
+}
+
+.art-wall__tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: start;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.art-wall__frame {
+  display: block;
+  border-radius: 3px;
+  overflow: hidden;
+  /* A placeholder tone while the image loads. */
+  background-color: rgb(from #fffcee r g b / 0.06);
+}
+
+.art-wall__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: filter 160ms ease;
+}
+
+.art-wall__tile:hover .art-wall__image {
+  filter: brightness(1.07);
+}
+
+/* Pixel art keeps its hard edges at whatever size the column draws it. */
+.art-wall__tile[data-pixelated] .art-wall__image {
+  image-rendering: pixelated;
+}
+
+/* Under every tile: its title, and for a series how many pieces. */
+.art-wall__label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75em;
+  padding-top: 0.5em;
+}
+
+.art-wall__name {
+  min-width: 0;
+  color: var(--art-wall-ink);
+}
+
+.art-wall__count {
+  flex: none;
+  color: var(--art-wall-accent);
+}
+
+.art-wall__tile:hover .art-wall__name {
+  color: var(--art-wall-accent);
+}
+
+.art-wall__tile:focus-visible {
+  outline: 2px solid var(--art-wall-accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* A series: the pages behind its cover, as a stack of paper edges. */
+.art-wall__tile[data-series] {
+  padding: 0 7px 7px 0;
+}
+
+.art-wall__tile[data-series] .art-wall__frame {
+  box-shadow:
+    3px 3px 0 -1px var(--page-bg),
+    3px 3px 0 0 rgb(from #fffcee r g b / 0.42),
+    7px 7px 0 -1px var(--page-bg),
+    7px 7px 0 0 rgb(from #fffcee r g b / 0.24);
+  overflow: visible;
+}
+
+.art-wall__tile[data-series] .art-wall__image {
+  border-radius: 3px;
+}
+
+
+@media (max-width: 767px) {
+  .art-wall {
+    --art-wall-gap: 10px;
+  }
+
+  .art-wall__tile[data-series] {
+    padding: 0 5px 5px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art-wall {
+    transition: none;
+  }
+}

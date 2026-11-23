@@ -86,7 +86,7 @@
 }
 
 /* A section can let the 3D scene behind the case study show through it —
-   Mesa's hero and its "Tight, Open, Tight" feature both sit on the crystal
+   Mesa's hero and its board-progression feature both sit on the crystal
    facet, whose colour is the project's own. It keeps a 60% wash of its tone's
    background so the copy has something under it. Foreground colours still come
    from the tone, so the copy is unaffected. */
@@ -125,7 +125,9 @@
 }
 
 .cs-body {
-  color: color-mix(in srgb, var(--cs-fg) 82%, transparent);
+  /* Muted, not faint: at 82% the lighter inks (Forest Giant's coral on indigo)
+     lost too much contrast for long reading. */
+  color: color-mix(in srgb, var(--cs-fg) 90%, transparent);
 }
 
 .cs-body > p + p {
@@ -171,7 +173,7 @@
 }
 
 .cs-caption {
-  color: color-mix(in srgb, var(--cs-fg) 55%, transparent);
+  color: color-mix(in srgb, var(--cs-fg) 70%, transparent);
 }
 
 /* --------------------------------------------------------------------------
@@ -230,6 +232,92 @@
 
 .cs-media__caption {
   margin-top: clamp(8px, 0.9vw, 14px);
+}
+
+/* --------------------------------------------------------------------------
+   Product captures and loops (CaseStudyMedia's frame, LoopVideo)
+   -------------------------------------------------------------------------- */
+
+/* frame="screen": a small radius, a hairline in the section's ink, a soft
+   shadow. The default for video, so a loop and a still beside it match. */
+.cs-media[data-frame='screen'] > .cs-media__frame,
+.cs-media[data-frame='screen'] > .cs-media__button > .cs-media__frame {
+  border-radius: clamp(6px, 0.6vw, 10px);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--cs-fg) 16%, transparent),
+    0 clamp(8px, 1.2vw, 18px) clamp(20px, 3vw, 44px) rgb(0 0 0 / 0.28);
+}
+
+/* frame="none": nothing around the picture at all. */
+.cs-media[data-frame='none'] > .cs-media__frame,
+.cs-media[data-frame='none'] > .cs-media__button > .cs-media__frame {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* LoopVideo fills its frame: the poster, the video over it, the toggle. */
+.cs-loop {
+  position: absolute;
+  inset: 0;
+}
+
+.cs-loop__poster,
+.cs-loop__video {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The video stays clear until it is actually playing, so the poster beneath
+   is what shows while it loads (or if it never does). */
+.cs-loop__video {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.cs-loop__video[data-playing] {
+  opacity: 1;
+}
+
+/* Pause / play: small and quiet in a corner, always there. */
+.cs-loop__toggle {
+  position: absolute;
+  inset-block-end: clamp(8px, 0.9vw, 14px);
+  inset-inline-end: clamp(8px, 0.9vw, 14px);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  inline-size: 34px;
+  block-size: 34px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  border-radius: 50%;
+  background-color: rgb(8 12 22 / 0.62);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.78;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: opacity 160ms ease, background-color 160ms ease;
+}
+
+.cs-loop__toggle svg {
+  inline-size: 14px;
+  block-size: 14px;
+}
+
+.cs-loop__toggle:hover,
+.cs-loop__toggle:focus-visible {
+  opacity: 1;
+  background-color: rgb(8 12 22 / 0.82);
+}
+
+.cs-loop__toggle:focus-visible {
+  outline: 2px solid var(--cs-fg);
+  outline-offset: 2px;
 }
 
 /* Placeholder standing in for artwork that has not been supplied yet. It is
@@ -498,6 +586,26 @@
   aspect-ratio: var(--cs-frame-ratio, auto);
 }
 
+/* A placeholder has no intrinsic size, so it takes the image's place exactly:
+   the rail's height, and the width its declared ratio gives at that height. */
+.cs-rail__item .cs-placeholder {
+  width: auto;
+  height: var(--cs-rail-height, clamp(320px, 34vw, 680px));
+  aspect-ratio: var(--cs-frame-ratio, 3 / 4);
+}
+
+/* An item's own caption (a step label) wraps to the picture's width rather
+   than widening the item past it: zero width keeps it out of the item's
+   shrink-to-fit size, and min-width gives the measure back. It sits flush
+   under its picture, so the stages' gutter padding for a whole-stage caption
+   (below, and in the mobile rules) does not apply — hence the extra class. */
+.cs-rail .cs-rail__item > .cs-media__caption {
+  width: 0;
+  min-width: 100%;
+  padding-inline: 0;
+  text-align: start;
+}
+
 /* --------------------------------------------------------------------------
    Hero
    -------------------------------------------------------------------------- */
@@ -517,8 +625,10 @@
   grid-template-areas:
     'title title'
     'subtitle media'
-    'body media';
-  grid-template-rows: auto auto 1fr;
+    'body media'
+    'meta media'
+    'after after';
+  grid-template-rows: auto auto auto 1fr auto;
   column-gap: clamp(24px, 4.7vw, 81px);
   align-items: start;
 }
@@ -546,10 +656,32 @@
   margin-inline-end: calc(-1 * var(--cs-edge));
 }
 
+/* The project's metadata, under the intro on its left edge: two columns at
+   every width, the phone's grid (.cs-meta, mobile block) on desktop too. */
+.cs-hero__meta {
+  grid-area: meta;
+  min-width: 0;
+  margin-top: clamp(28px, 3vw, 52px);
+}
+
+.cs-hero__after {
+  grid-area: after;
+  min-width: 0;
+  margin-top: clamp(36px, 4.6vw, 80px);
+}
+
+.cs-hero__meta .cs-meta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(16px, 5vw, 28px);
+  row-gap: clamp(18px, 5vw, 26px);
+}
+
 /* --------------------------------------------------------------------------
    Overview
    -------------------------------------------------------------------------- */
 
+/* The right-hand column is empty now the metadata is in the hero: it keeps the
+   narrative and its media at the measure they were set at. */
 .cs-overview__inner {
   display: grid;
   grid-template-columns: minmax(0, 989fr) minmax(0, 365fr);
@@ -566,14 +698,6 @@
 
 .cs-overview__content {
   grid-column: 1;
-  grid-row: 2;
-  min-width: 0;
-}
-
-/* The metadata rail starts level with the first line of the narrative, not the
-   section heading — matching the desktop reference. */
-.cs-overview__rail {
-  grid-column: 2;
   grid-row: 2;
   min-width: 0;
 }
@@ -596,7 +720,7 @@
 
 /* Label is .type-subhead-sm, value .type-body-sm (type.css). */
 .cs-meta__label {
-  color: color-mix(in srgb, var(--cs-fg) 55%, transparent);
+  color: color-mix(in srgb, var(--cs-fg) 70%, transparent);
   margin-bottom: 0.35em;
 }
 
@@ -780,8 +904,52 @@
 }
 
 .cs-outcome__detail {
-  color: color-mix(in srgb, var(--cs-fg) 55%, transparent);
+  color: color-mix(in srgb, var(--cs-fg) 70%, transparent);
   margin: 0.45em 0 0;
+}
+
+/* Figures: the numeral on its own line, the unit beneath it at body size.
+   .type-headline-lg leaves its size to the context it sits in (type.css), so
+   it is set here. */
+.cs-conclusion__outcomes[data-style='figure'] .cs-outcome__value {
+  font-size: clamp(3rem, 7vw, 6.5rem);
+}
+
+.cs-conclusion__outcomes[data-style='figure'] .cs-outcome__detail {
+  margin-top: 0.15em;
+}
+
+/* A before and after as one figure: the "before" quieter, an arrow between. */
+.cs-outcome__from {
+  opacity: 0.45;
+}
+
+.cs-outcome__arrow {
+  display: inline-block;
+  margin-inline: 0.18em;
+  font-weight: 400;
+  opacity: 0.6;
+  transform: translateY(-0.06em);
+}
+
+/* A secondary outcome: the same figure at about half the size. */
+.cs-conclusion__outcomes[data-style='figure'] [data-secondary] .cs-outcome__value {
+  font-size: clamp(2rem, 3.6vw, 3.4rem);
+}
+
+.cs-conclusion__outcomes[data-style='figure'] [data-secondary] .cs-outcome__detail {
+  font-size: 0.85em;
+}
+
+.cs-outcome__note {
+  margin: clamp(18px, 2vw, 32px) 0 0;
+  color: color-mix(in srgb, var(--cs-fg) 70%, transparent);
+}
+
+/* No outcomes: the reflection alone, at the overview's measure. */
+.cs-conclusion--lessons-only .cs-conclusion__inner {
+  grid-template-columns: minmax(0, 989fr) minmax(0, 365fr);
+  column-gap: clamp(32px, 12.4vw, 214px);
 }
 
 /* .type-body, set in the bold weight as the closing line. */
@@ -837,10 +1005,14 @@
   opacity: 0.75;
 }
 
+/* The button's small bottom padding lifts its content box to centre the
+   label's capitals; a top margin of the same amount puts the cross back on the
+   button's own centre (a flex item's margins move it by half). */
 .cs-back__icon {
   flex: none;
   inline-size: 14px;
   block-size: 14px;
+  margin-block-start: 0.09em;
 }
 
 .cs-skip-link {
@@ -1097,7 +1269,9 @@
 .cs-overlay .cs-hero__title,
 .cs-overlay .cs-hero__subtitle,
 .cs-overlay .cs-hero__media,
-.cs-overlay .cs-hero__text {
+.cs-overlay .cs-hero__text,
+.cs-overlay .cs-hero__meta,
+.cs-overlay .cs-hero__after {
   animation: cs-rise-in var(--cs-enter-item, 1120ms) cubic-bezier(0.2, 0.7, 0.2, 1)
     calc(
       var(--cs-enter-offset, 450ms) + var(--cs-enter-lead, 760ms) +
@@ -1122,6 +1296,14 @@
   --cs-enter-step: 3;
 }
 
+.cs-overlay .cs-hero__meta {
+  --cs-enter-step: 4;
+}
+
+.cs-overlay .cs-hero__after {
+  --cs-enter-step: 5;
+}
+
 .cs-overlay .cs-back {
   animation: cs-fade-in 400ms ease
     calc(var(--cs-enter-offset, 450ms) + var(--cs-enter-back, 1640ms)) backwards;
@@ -1135,6 +1317,8 @@
 .cs-overlay[data-instant] .cs-hero__subtitle,
 .cs-overlay[data-instant] .cs-hero__media,
 .cs-overlay[data-instant] .cs-hero__text,
+.cs-overlay[data-instant] .cs-hero__meta,
+.cs-overlay[data-instant] .cs-hero__after,
 .cs-overlay[data-instant] .cs-back {
   animation: none;
 }
@@ -1184,12 +1368,13 @@
     border-radius: 50%;
     --squircle-radius: calc(var(--bottom-row-disc) / 2);
     --squircle-smoothing: 0;
-    --squircle-stroke-width: 0px;
   }
 
+  /* No padding here, so nothing to offset. */
   .cs-back--close .cs-back__icon {
     inline-size: 18px;
     block-size: 18px;
+    margin-block-start: 0;
   }
 
   .cs-back--close .cs-back__label {
@@ -1203,7 +1388,9 @@
       'title'
       'subtitle'
       'media'
-      'body';
+      'body'
+      'meta'
+      'after';
     grid-template-rows: auto;
   }
 
@@ -1220,27 +1407,22 @@
     margin-top: clamp(14px, 4.5vw, 22px);
   }
 
-  /* Overview: metadata first, then narrative, media, caption. */
+  /* Overview: heading, then narrative, media, caption. */
   .cs-overview__inner {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
     row-gap: clamp(20px, 6vw, 32px);
   }
 
-  .cs-overview__rail {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
   .cs-overview__heading {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 1;
     margin-bottom: clamp(8px, 2.4vw, 14px);
   }
 
   .cs-overview__content {
     grid-column: 1;
-    grid-row: 3;
+    grid-row: 2;
   }
 
   .cs-overview__media {
@@ -1260,8 +1442,15 @@
     margin-inline: 0;
   }
 
-  .cs-rail__item .cs-media__img {
+  .cs-rail__item .cs-media__img,
+  .cs-rail__item .cs-placeholder {
     height: var(--cs-rail-height-mobile, clamp(300px, 96vw, 520px));
+  }
+
+  /* The rail runs to the screen edge here, so a step label would sit flush
+     against it; a short inset keeps it off the edge and with its picture. */
+  .cs-rail .cs-rail__item > .cs-media__caption {
+    padding-inline: 10px;
   }
 
   /* Multi-column galleries would be illegible at phone widths — stack them. */
@@ -1274,7 +1463,8 @@
      full width of a bleeding stage would fill the screen on its own, so it is
      centred at a share of the width instead — the grid below it is what the
      reader is meant to see next. The supporting grid keeps two columns rather
-     than stacking: these are thumbnails of a set, and tapping one enlarges it. */
+     than stacking by default: thumbnails of a set, tapping one enlarges it.
+     Items meant to be read in place (document excerpts) opt into one. */
   .cs-featured {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1284,8 +1474,15 @@
     margin-inline: auto;
   }
 
+  /* A landscape lead is already short at full width. */
+  .cs-featured[data-lead='landscape'] .cs-featured__lead {
+    max-width: none;
+  }
+
+  /* Two by default; FeaturedGallery's `mobileColumns` sets one for items that
+     must be read on the page rather than enlarged. */
   .cs-featured__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--cs-featured-columns-mobile, 2), minmax(0, 1fr));
   }
 
   .cs-meta {
@@ -1353,7 +1550,8 @@
   }
 
   /* Conclusion: outcomes, then reflection. */
-  .cs-conclusion__inner {
+  .cs-conclusion__inner,
+  .cs-conclusion--lessons-only .cs-conclusion__inner {
     grid-template-columns: minmax(0, 1fr);
     row-gap: clamp(26px, 8vw, 44px);
   }

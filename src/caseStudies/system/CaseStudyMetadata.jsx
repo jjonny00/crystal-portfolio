@@ -37,13 +37,20 @@ export const normalizeMetadata = (metadata) => {
     .filter((entry) => entry.label && entry.values.length);
 };
 
-const CaseStudyMetadata = ({ metadata, className = '', title = 'At a glance' }) => {
+const CaseStudyMetadata = ({
+  metadata,
+  className = '',
+  title = 'At a glance',
+  /** Its (visually hidden) heading's level, for the outline it sits in. */
+  headingAs = 'h3',
+}) => {
+  const Heading = headingAs;
   const entries = normalizeMetadata(metadata);
   if (!entries.length) return null;
 
   return (
     <div className={className}>
-      <h3 className="cs-visually-hidden">{title}</h3>
+      <Heading className="cs-visually-hidden">{title}</Heading>
       <dl className="cs-meta">
         {entries.map((entry) => (
           <div className="cs-meta__group" key={entry.label}>

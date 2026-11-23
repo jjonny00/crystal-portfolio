@@ -17,7 +17,6 @@ import '../../styles/hero-section.css';
 // paragraph reflowed down a narrow column. Shared with the prerendered page.
 import {
   HERO_BODY_COPY as BODY_COPY,
-  HERO_BODY_COPY_MOBILE as BODY_COPY_MOBILE,
   HERO_BODY_EMPHASIS,
   HERO_CTA_LABEL,
   HERO_HEADLINE_LINES,
@@ -209,7 +208,7 @@ const HeroSection = ({
 
         <animated.div style={pieceStyle(2)} className="hero-section__body-block">
           <p className="type-body-lg hero-section__body-copy">
-            {withEmphasis(isMobile ? BODY_COPY_MOBILE : BODY_COPY)}
+            {withEmphasis(BODY_COPY)}
           </p>
         </animated.div>
 

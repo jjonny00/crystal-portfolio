@@ -25,6 +25,8 @@ const ScrollablePortfolio = ({
   onOpenCaseStudy = null,
   onBackToProject = null,
   onSettledSectionChange = null,
+  // About's link into the art wall (App opens it over the scene).
+  onOpenArtWall = null,
   // The section a deep link lands on (/about, /work/<slug>). Seeded so the first
   // report up is where the reader is arriving rather than a passing 'hero'.
   initialSettledSectionId = 'hero',
@@ -311,7 +313,11 @@ const ScrollablePortfolio = ({
             pointerEvents: 'auto'
           }}
         >
-          <AboutSection visible={revealed && settledSectionId === 'about'} />
+          <AboutSection
+            visible={revealed && settledSectionId === 'about'}
+            isMobile={isMobileViewport}
+            onOpenArtWall={onOpenArtWall}
+          />
         </section>
       </div>
     </div>

@@ -8,6 +8,7 @@ import react from '@vitejs/plugin-react'
 import mdx from '@mdx-js/rollup'
 import remarkFrontmatter from 'remark-frontmatter'
 import { devlogEntries, rehypeDevlogMedia } from './scripts/devlog/vitePlugin.mjs'
+import { artWallSizes } from './scripts/artWall/vitePlugin.mjs'
 import {
   CRYSTAL_NORMAL_MAP,
   DUST_TEXTURE,
@@ -111,6 +112,8 @@ export default defineConfig(({ isSsrBuild }) => ({
     react({ include: /\.(mdx|js|jsx|ts|tsx)$/ }),
     appChunkInfo(),
     devlogEntries(),
+    // The art wall's image sizes (src/artWall/README.md).
+    artWallSizes({ root: projectRoot }),
   ],
   define: {
     __LOADER_ASSET_BYTES__: JSON.stringify(loaderAssetBytes()),

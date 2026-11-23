@@ -15,6 +15,9 @@
 //                     inside the project's case study, which is the devlog's
 //                     archive; the part after the slug is the overlay's `subpath`.
 //   /about            about
+//   /about/comics     the art wall ("Comics & Other Bad Ideas"), a layer over
+//                     About: the scene lands on About underneath it, the way
+//                     /about does, and the route carries `artWall: true`.
 //
 // A project's `legacySlugs` (an earlier project in its slot) resolve to it, with
 // its own path as the canonical one; netlify.toml redirects them on the host.
@@ -34,6 +37,9 @@ import {
 import { NAVIGATION_DESTINATIONS } from './navigationIntent';
 
 const WORK_PREFIX = '/work';
+
+/** The art wall's URL (src/artWall). */
+export const ART_WALL_PATH = '/about/comics';
 
 const projectBySlug = new Map(projects.map((project) => [project.slug, project]));
 const projectByLegacySlug = new Map(
@@ -80,6 +86,9 @@ export const parsePath = (pathname) => {
   if (path === '/') return { destination: NAVIGATION_DESTINATIONS.HERO, path: '/' };
   if (path === WORK_PREFIX) return { destination: NAVIGATION_DESTINATIONS.OVERVIEW, path };
   if (path === '/about') return { destination: NAVIGATION_DESTINATIONS.ABOUT, path };
+  if (path === ART_WALL_PATH) {
+    return { destination: NAVIGATION_DESTINATIONS.ABOUT, artWall: true, path };
+  }
 
   if (path.startsWith(`${WORK_PREFIX}/`)) {
     const [requestedSlug, ...rest] = path.slice(WORK_PREFIX.length + 1).split('/');
@@ -154,6 +163,7 @@ export const getPrerenderRoutes = () => [
   { ...parsePath('/'), file: 'index.html', indexable: true },
   { ...parsePath('/work'), file: 'work.html', indexable: false },
   { ...parsePath('/about'), file: 'about.html', indexable: false },
+  { ...parsePath(ART_WALL_PATH), file: 'about/comics.html', indexable: true },
   ...projects.map((project) => ({
     ...parsePath(`${WORK_PREFIX}/${project.slug}`),
     file: `work/${project.slug}.html`,

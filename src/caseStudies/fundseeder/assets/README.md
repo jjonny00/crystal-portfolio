@@ -15,23 +15,42 @@ enlarged view only.
 
 ## Status
 
-| Slot | Asset | Made from |
-| --- | --- | --- |
-| `hero.media` | `hero.webp` | A composition, 2400×1600 (the hero's 3:2) on a transparent ground: `tiers/tierA.png` with the 101 / 102 You / 103 rows of `Dashboard05.png`'s ranking panel floating over it. Built in HTML and rendered headlessly. |
-| `overview.gallery` | `dashboard.webp` (+ `-full`) | `Dashboard05.png`, whole frame |
-| `overview.gallery` | `leaderboard.webp` (+ `-full`) | `Leaderboard.png`, top 3840×2256 cropped to the dashboard's ratio; `-full` is the whole page |
-| `overview.gallery` | — Signal | **Still a placeholder.** No Signal screen in the supplied set. |
-| `tiers.ladder` | `tiers/tier-{d,c,b,a,s}.webp` | The badge cut from each tier card, 272×272, masked to the ring's outer edge. `tierC.png`'s badge sits 4px right of the others; the crop follows it. The ladder itself is `TierLadder.jsx`. |
-| `leaderboard.gallery` | `leaderboard-table.webp` (+ `-full`) | `Leaderboard.png`, the leaderboard panel from the filter bar to the pinned row, 2577×2227 |
-| `leaderboard.gallery` | `leaderboard-filters.webp` (+ `-full`) | `Group 3385.png`, whole frame (same ratio as the table, so the pair sits level) |
-| `nextRival.gallery` | `ranking-neighbourhood.webp` | `Dashboard05.png`, the ranking panel alone, its rounded corners cut transparent |
-| `nextRival.gallery` | `pinned-entry.webp` | `Leaderboard.png`, rows 12–16 and the pinned "You" row |
-| `identity.gallery` | `names-and-flags.webp` | `Group 3385.png`, the podium |
-| `identity.gallery` | — name approval | **Still a placeholder.** No approval screen in the supplied set. |
-| `destination.flow` | — | Drawn by `SelectionFlow.jsx`; no raster asset |
+Slots follow the finishing pass (November 2026).
 
-`home-hero-cards03.jpg` (the fanned tier cards from fundseeder.com's hero) was
-in the set and isn't used: the case study's hero needed rank as well as tier.
-fundseeder.com's own feature images (`home-features-*`, `howItWorks-*`) are
-800–912px wide, too small for any slot here, and were used only as reference
-for the hero's composition.
+| Slot | Asset | Placement |
+| --- | --- | --- |
+| `hero.media` | `public/media/fundseeder/fs-last-visit-*` (crop `1272:708:84:70`) | Video, frameless (hard edges); the sample-data line is its caption |
+| `overview.paths` | — | Drawn live by `StrategyPaths.jsx` |
+| `rivals.media` | `public/media/fundseeder/fs-rivals-*` (crop `1464:708:84:70`) | Video, frameless (hard edges) |
+| `tiers.ladder` | `tiers/tier-d.webp` … `tier-s.webp` | Drawn by `TierLadder.jsx` around the product's badges |
+| `seeded.media` | `public/media/fundseeder/fs-seeded-*` (crop `1794:708:84:70`) | Video, full-bleed stage, frameless (hard edges) |
+| `countries.media` | `public/media/fundseeder/fs-countries.webp` (x 160–3060, y 120–1550; 2400×1183) | Frameless (hard edges) |
+| `compare.pinned` | `public/media/fundseeder/fs-pinned-row.webp` (x 1052–3770, y 1094–2156; 2600×1016) | Wide stage, frameless |
+| `signal.media` | `signal/pairwise-evidence.webp` (345×275) · `signal/connection-detail.webp` (1194×340) | A `MediaRail` at 275px (220px on phones). The connection detail keeps its counts row: cropped it is 1194×164, too small at that height. |
+
+The globe loops and stills are in `public/media/fundseeder/` (served as-is,
+not bundled), made from `fundseederViz/globeCaptures`. Each loop has its own crop (above),
+without the app's sidebar, top bar, scrollbar or FILTERS bar (the app card
+spans x 81–1880 and y 67–778 of the 1920×1080 source). The crop is the only
+change: source frame rate (60fps, passthrough), no scaling, no fades, no
+audio, BT.709 kept. One size per clip: `<name>.webm` (VP9), `<name>.mp4`
+(H.264) and `<name>-poster.webp`. Posters are
+settled, cursor-free frames: Last Visit 1.5s, Rivals 3.4s, Seeded 17.6s. `v2/f01-hero-desktop.webp` and `v2/f04-nearby-rivals.webp`
+stay in the repo, unused.
+
+The figures are FundSeeder's own, as of October 7, 2026: 20 traders seeded
+since relaunch (none before it) and $256M allocated to them. The product images
+and loops show sample data, said once under the hero.
+
+The v2 comparison, period-control and Signal screens were removed from the
+repo: the Signal screens showed trader names and emails, and the leaderboard's
+1,700 strategies disagreed with the 1,027 reported. The originals are still in
+`fundseederViz/fundseeder_webp_v2`.
+
+Not imported any more (the v1 assets): `hero.webp`, `ranking-neighbourhood.webp`,
+`pinned-entry.webp`, `leaderboard-filters.webp`, `dashboard.webp`,
+`leaderboard.webp`, `leaderboard-table.webp` (each with `-full` where there is
+one) and `names-and-flags.webp`.
+
+Still to capture, if it can be done in one short session: an expanded
+leaderboard row.

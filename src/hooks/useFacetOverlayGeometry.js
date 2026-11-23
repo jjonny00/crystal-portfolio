@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
-import { getOverlayImageByFacetKey } from '../data/projects';
+import { getFaceVideoByFacetKey, getOverlayImageByFacetKey } from '../data/projects';
+import { whenPerformanceTierKnown } from './usePerformanceV2';
 import { loadOverlayImage } from '../loader/preloadOverlayImages';
 import {
   applyArtworkMask,
@@ -52,6 +53,74 @@ const syncMaskStrength = (slot) => {
     slot.maskStrength * easeFade(slot.maskLevel),
     slot.maskStrength
   );
+};
+
+// --- Face video -----------------------------------------------------------
+//
+// A project can name a looping video for its face (projects.js `faceVideo`, a
+// base path: <base>.webm / <base>.mp4, stored already turned 90° counter-clockwise, the
+// way the face draws its artwork). While that project is the one up, a
+// THREE.VideoTexture takes the overlay's map; when it goes, the still (the
+// project's overlayImage, its poster) comes back once the artwork has faded,
+// and the video and texture are disposed. The video is never attached to the
+// DOM. It pauses while the face is cut out for the case study.
+//
+// Not on the low tier (the poster is a normal texture there, and no video is
+// requested), and not with reduced motion.
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' &&
+  Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+
+const pickFaceVideoSource = (video, base) => {
+  const webm = video.canPlayType?.('video/webm; codecs="vp9"');
+  return webm ? `${base}.webm` : `${base}.mp4`;
+};
+
+const startFaceVideo = (slot) => {
+  if (!slot.faceVideoBase || slot.faceVideo || typeof document === 'undefined') return;
+  const video = document.createElement('video');
+  video.muted = true;
+  video.defaultMuted = true;
+  video.loop = true;
+  video.playsInline = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('muted', '');
+  video.preload = 'auto';
+  video.src = pickFaceVideoSource(video, slot.faceVideoBase);
+
+  const texture = new THREE.VideoTexture(video);
+  const face = { video, texture, showing: false };
+  slot.faceVideo = face;
+
+  // Swap the map only once a frame exists, so the face never goes black.
+  const show = () => {
+    if (slot.faceVideo !== face || face.showing) return;
+    configureOverlayTexture(texture, slot.bounds, slot.originalMaterial);
+    // No mipmaps on a video: a mipmap filter would sample nothing.
+    texture.generateMipmaps = false;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    slot.overlayMaterial.map = texture;
+    slot.overlayMaterial.needsUpdate = true;
+    face.showing = true;
+  };
+  video.addEventListener('loadeddata', show, { once: true });
+  video.play?.().catch(() => {});
+};
+
+const stopFaceVideo = (slot) => {
+  const face = slot.faceVideo;
+  if (!face) return;
+  slot.faceVideo = null;
+  if (face.showing && slot.overlayMaterial.map === face.texture) {
+    slot.overlayMaterial.map = slot.overlayTexture;
+    slot.overlayMaterial.needsUpdate = true;
+  }
+  face.video.pause();
+  face.video.removeAttribute('src');
+  face.video.load();
+  face.texture.dispose();
 };
 
 const faceMaterialOf = (slot) => {
@@ -363,6 +432,19 @@ export const useFacetOverlayGeometry = (facetKeys, { maskPathForFacet = null, ma
   const canvasCacheRef = useRef(new Map());
   const maskTexturesRef = useRef(new Map());
   const maskStrengthRef = useRef(maskStrength);
+  // Whether face videos may play: known once the device tier is.
+  const faceVideoAllowedRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    whenPerformanceTierKnown().then((tier) => {
+      if (cancelled) return;
+      faceVideoAllowedRef.current = tier !== 'low' && !prefersReducedMotion();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -693,8 +775,18 @@ export const useFacetOverlayGeometry = (facetKeys, { maskPathForFacet = null, ma
         keepBaseMapDetached: true,
         maskStrength: maskStrengthRef.current,
         maskLevel: existingSlot?.maskLevel ?? 1,
+        faceVideoBase: getFaceVideoByFacetKey(facetKey),
+        faceVideo: existingSlot?.faceVideo ?? null,
       };
       syncMaskStrength(slot);
+      // A re-registration keeps a playing face video, on the new material.
+      if (slot.faceVideo?.showing) {
+        configureOverlayTexture(slot.faceVideo.texture, bounds, baseMaterial);
+        slot.faceVideo.texture.generateMipmaps = false;
+        slot.faceVideo.texture.minFilter = THREE.LinearFilter;
+        slot.overlayMaterial.map = slot.faceVideo.texture;
+        slot.overlayMaterial.needsUpdate = true;
+      }
 
       // A fresh overlay mesh each registration: cheap (no GPU resources of its
       // own), and it picks up a changed mesh, slot index or material.
@@ -735,6 +827,13 @@ export const useFacetOverlayGeometry = (facetKeys, { maskPathForFacet = null, ma
 
     slot.targetOpacity = visible ? 1 : 0;
 
+    // The face video starts with the project, once its face is showing (not
+    // while a case study has it cut out); it stops once the artwork has faded
+    // out (updateOverlays).
+    if (visible && faceVideoAllowedRef.current && !slot.cutout && !slot.faceHidden) {
+      startFaceVideo(slot);
+    }
+
     if (visible && !slot.isActive) {
       slot.overlayMaterial.opacity = slot.currentOpacity;
       setOverlaySlotShown(slot, true);
@@ -765,6 +864,7 @@ export const useFacetOverlayGeometry = (facetKeys, { maskPathForFacet = null, ma
           if (slot.faceHidden) setFaceHidden(slot, false);
           setOverlaySlotShown(slot, false);
         }
+        stopFaceVideo(slot);
         return;
       }
 
@@ -801,7 +901,18 @@ export const useFacetOverlayGeometry = (facetKeys, { maskPathForFacet = null, ma
         setFaceHidden(slot, true);
       }
 
-      if (!slot.isActive && target === 0 && slot.fadeLevel === 0) return;
+      // The face video rests while the case study has the face cut out.
+      if (slot.faceVideo) {
+        const video = slot.faceVideo.video;
+        const rest = slot.cutout || slot.faceHidden;
+        if (rest && !video.paused) video.pause();
+        else if (!rest && video.paused) video.play?.().catch(() => {});
+      }
+
+      if (!slot.isActive && target === 0 && slot.fadeLevel === 0) {
+        if (slot.faceVideo) stopFaceVideo(slot);
+        return;
+      }
       // Shown (again) — this also keeps it on the facet's current geometry.
       setOverlaySlotShown(slot, true);
 
@@ -816,6 +927,7 @@ export const useFacetOverlayGeometry = (facetKeys, { maskPathForFacet = null, ma
 
       // Off only once it has actually reached nothing.
       if (target === 0 && slot.fadeLevel === 0) {
+        stopFaceVideo(slot);
         setOverlaySlotShown(slot, false);
         if (slot.keepBaseMapDetached && slot.originalMaterial.map) {
           slot.originalMaterial.map = null;
@@ -827,6 +939,7 @@ export const useFacetOverlayGeometry = (facetKeys, { maskPathForFacet = null, ma
 
   const cleanup = useCallback(() => {
     overlaySlotsRef.current.forEach((slot) => {
+      stopFaceVideo(slot);
       if (slot.faceHidden) setFaceHidden(slot, false);
       removeOverlayMesh(slot);
 

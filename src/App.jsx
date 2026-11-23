@@ -56,6 +56,7 @@ import * as defaultConfig from './crystalConfig';
 
 // Case studies (lazy-loaded per project)
 import CaseStudyOverlay, { OVERLAY_Z_INDEX, preloadCaseStudy } from './caseStudies/CaseStudyOverlay';
+import ArtWallLayer from './artWall/ArtWallLayer';
 import { backgroundColorForTone, foregroundColorForTone } from './caseStudies/system/caseStudyTheme';
 import { CASE_STUDY_EXIT_MS, CASE_STUDY_RETURN_EXIT_MS, caseStudyOpaqueAtMs } from './caseStudies/transitionTiming';
 import { PROJECT_ROUTES } from './config/projectRouteTiming';
@@ -452,6 +453,9 @@ function App() {
     () => parsePath(window.location.pathname) || parsePath('/')
   );
   const caseStudyDeepLink = initialRoute.destination === NAVIGATION_DESTINATIONS.CASE_STUDY;
+  // /about/comics: the art wall, prerendered and on screen from the first paint,
+  // with the scene loading behind it onto About (the same fast path).
+  const artWallDeepLink = Boolean(initialRoute.artWall);
   // Where the scene lands once it is up. Cleared when used.
   const pendingLandingRef = useRef(
     initialRoute.destination === NAVIGATION_DESTINATIONS.HERO ? null : initialRoute
@@ -642,6 +646,12 @@ function App() {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const overlayProject = catalogOpen ? CATALOG_PROJECT : activeProject;
   const overlayOpen = catalogOpen || caseStudyOpen;
+
+  // The art wall (src/artWall): a layer of its own over About, outside
+  // viewMode. Every nav destination closes it, as it does a case study.
+  const [artWallOpen, setArtWallOpen] = useState(artWallDeepLink);
+  const openArtWall = useCallback(() => setArtWallOpen(true), []);
+  const closeArtWall = useCallback(() => setArtWallOpen(false), []);
   // Tone of the case-study section currently under the fixed top nav; null once
   // the overlay has finished fading out. Driven by the overlay rather than by
   // `caseStudyOpen` so the nav keeps its case-study colour through the exit.
@@ -696,8 +706,18 @@ function App() {
   // a background entirely.
   const [caseStudyEntranceSettled, setCaseStudyEntranceSettled] = useState(false);
   const [caseStudySceneNeeded, setCaseStudySceneNeeded] = useState(false);
+  // The art wall is opaque throughout, so it only has to finish fading in.
+  const [artWallCovering, setArtWallCovering] = useState(false);
+  useEffect(() => {
+    if (!artWallOpen) {
+      setArtWallCovering(false);
+      return undefined;
+    }
+    const timeoutId = setTimeout(() => setArtWallCovering(true), 420);
+    return () => clearTimeout(timeoutId);
+  }, [artWallOpen]);
   const sceneFrozen =
-    overlayOpen && caseStudyEntranceSettled && !caseStudySceneNeeded;
+    (overlayOpen && caseStudyEntranceSettled && !caseStudySceneNeeded) || artWallCovering;
 
   useEffect(() => {
     if (!overlayOpen) {
@@ -945,6 +965,7 @@ function App() {
   // dismisses an open case study before the usual intent runs.
   const handleHomeClick = useCallback(() => {
     cancelPendingCaseStudyHome();
+    closeArtWall();
     if (viewModeRef.current === 'caseStudy') {
       // Out of a case study, leave exactly as Work does (the layer fades over
       // the fragment it was the background of while the camera draws back out
@@ -981,10 +1002,11 @@ function App() {
       behavior: 'auto',
       legacyAction: 'directSelectZone+scrollToSection',
     });
-  }, [cancelPendingCaseStudyHome, closeCaseStudy, requestNavigationIntent]);
+  }, [cancelPendingCaseStudyHome, closeArtWall, closeCaseStudy, requestNavigationIntent]);
 
   const handleWorkClick = useCallback(() => {
     cancelPendingCaseStudyHome();
+    closeArtWall();
     closeCaseStudy();
     requestNavigationIntent({
       destination: NAVIGATION_DESTINATIONS.OVERVIEW,
@@ -992,10 +1014,11 @@ function App() {
       behavior: 'auto',
       legacyAction: 'directSelectZone+scrollToSection',
     });
-  }, [cancelPendingCaseStudyHome, closeCaseStudy, requestNavigationIntent]);
+  }, [cancelPendingCaseStudyHome, closeArtWall, closeCaseStudy, requestNavigationIntent]);
 
   const handleAboutClick = useCallback(() => {
     cancelPendingCaseStudyHome();
+    closeArtWall();
     closeCaseStudy();
     requestNavigationIntent({
       destination: NAVIGATION_DESTINATIONS.ABOUT,
@@ -1003,7 +1026,7 @@ function App() {
       behavior: 'auto',
       legacyAction: 'directSelectZone+scrollToSection',
     });
-  }, [cancelPendingCaseStudyHome, closeCaseStudy, requestNavigationIntent]);
+  }, [cancelPendingCaseStudyHome, closeArtWall, closeCaseStudy, requestNavigationIntent]);
 
   const handleContactClick = useCallback(() => {}, []);
 
@@ -1112,8 +1135,8 @@ function App() {
   // Ahead of the landing below: the prerendered home page carries the same
   // section headings, and nothing should be found in it by mistake.
   useLayoutEffect(() => {
-    if (caseStudyDeepLink || sceneMounted) removePrerenderedContent();
-  }, [caseStudyDeepLink, sceneMounted]);
+    if (caseStudyDeepLink || artWallDeepLink || sceneMounted) removePrerenderedContent();
+  }, [caseStudyDeepLink, artWallDeepLink, sceneMounted]);
 
   // Arriving on /work, /about or /work/<slug>: land there directly, with no intro
   // and no hero -> overview cinematic. Both are keyed off the controller being in
@@ -1194,6 +1217,9 @@ function App() {
     onOpenCaseStudy: handleOpenCaseStudy,
     onCloseCaseStudy: closeCaseStudy,
     onCaseStudySubpathChange: setCaseStudySubpath,
+    artWallOpen,
+    onOpenArtWall: openArtWall,
+    onCloseArtWall: closeArtWall,
     onNavigate: navigateFromHistory,
   });
 
@@ -1430,7 +1456,8 @@ function App() {
   // the reader is reading, and the scene loads quietly behind. It shows only if
   // they close the case study before the scene is ready, and then hands off
   // exactly as it would on a normal arrival.
-  const loaderShown = showLoader && !(caseStudyDeepLink && caseStudyOpen);
+  const loaderShown =
+    showLoader && !(caseStudyDeepLink && caseStudyOpen) && !(artWallDeepLink && artWallOpen);
   useLayoutEffect(() => {
     setLoaderPresentation({ shown: loaderShown, exiting: exitLoader });
   }, [loaderShown, exitLoader]);
@@ -1439,7 +1466,7 @@ function App() {
   // has to keep one place in it, or it would remount, and lose its scroll, the
   // moment the scene arrives), with the scene's own layers held back until it
   // has loaded. Every other arrival keeps the loader-only first screen.
-  if (!sceneMounted && !caseStudyDeepLink) return null;
+  if (!sceneMounted && !caseStudyDeepLink && !artWallDeepLink) return null;
 
   return (
     <>
@@ -1676,6 +1703,7 @@ function App() {
         onOpenCaseStudy={handleOpenCaseStudy}
         onBackToProject={handleBackToProject}
         onSettledSectionChange={setSettledSection}
+        onOpenArtWall={openArtWall}
         // Its sections animate in when they become visible; behind the loader
         // that would happen unseen, so they wait for the hand-off.
         revealed={exitLoader}
@@ -1697,6 +1725,10 @@ function App() {
         navigation={caseStudyNavigation}
         subpath={catalogOpen ? null : caseStudySubpath}
       />
+
+      {/* The art wall — Comics & Other Bad Ideas — over About. Back to About,
+          Escape and Back all close it; the portfolio underneath never moved. */}
+      <ArtWallLayer open={artWallOpen} initiallyOpen={artWallDeepLink} onBack={closeArtWall} />
 
 
       {/* UI Controls */}

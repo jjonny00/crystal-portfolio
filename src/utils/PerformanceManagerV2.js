@@ -22,6 +22,16 @@ export default class PerformanceManagerV2 {
     this._listeners = new Set();
     this._progressCallback = null;
     this._testCanvas = null;
+    // Settles once the tier is known (cached or tested), without starting the
+    // test itself: for readers that only need the answer (LoopVideo).
+    this._readyPromise = new Promise((resolve) => {
+      this._resolveReady = resolve;
+    });
+  }
+
+  /** Resolves with the tier once it is known. Never starts the test. */
+  whenReady() {
+    return this._readyPromise.then(() => this.tier);
   }
 
   setProgressCallback(callback) {
@@ -53,6 +63,7 @@ export default class PerformanceManagerV2 {
         ? cachedData.testResults
         : { ...cachedData.testResults, tier: cachedData.tier };
       this._ready = true;
+      this._resolveReady();
       return;
     }
 
@@ -87,6 +98,7 @@ export default class PerformanceManagerV2 {
     }
 
     this._ready = true;
+    this._resolveReady();
   }
 
   _getCachedResults() {

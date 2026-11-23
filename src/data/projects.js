@@ -165,7 +165,7 @@ export const projects = [
     shortTagline: 'Competitive Platform',
     description:
       'I redesigned FundSeeder around a competitive system that gives more than 1,000 ranked participants meaningful goals, relevant rivals, and a reason to keep progressing.',
-    metrics: '1,027 strategies ranked · 17 traders seeded since relaunch',
+    metrics: '20 traders seeded since relaunch · $256M allocated',
     roles: 'Principal Product Designer · Strategy, Systems + Brand',
     cta: 'Designing the Ladder',
     // Case-study level only: where to find the case study and how to theme it.
@@ -200,7 +200,12 @@ export const projects = [
     color: '#00bd8b',
     headlineColor: '#23c790',
     imageUrl: '/assets/projects/fundseeder.webp',
-    overlayImage: '/assets/projects/fundseeder.webp'
+    // The face: the leaderboard globe orbiting. The poster is the still (and
+    // all the low tier gets); faceVideo plays over it while FundSeeder is the
+    // project up (hooks/useFacetOverlayGeometry.js). The video is stored
+    // already turned 90° counter-clockwise, the way the face draws its artwork.
+    overlayImage: '/media/fundseeder/fs-crystal-orbit-poster.webp',
+    faceVideo: '/media/fundseeder/fs-crystal-orbit-1024'
   },
   {
     id: 'project04',
@@ -473,6 +478,12 @@ export const getProjectByAnyKey = (key) => getProjectByFacetKey(key);
 export const getOverlayImageByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
   return project?.overlayImage || null;
+};
+
+/** A project face's looping video (base path, no extension), or null. */
+export const getFaceVideoByFacetKey = (facetKey) => {
+  const project = getProjectByFacetKey(facetKey);
+  return project?.faceVideo || null;
 };
 
 export default projects;

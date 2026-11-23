@@ -8,7 +8,7 @@
 export const HERO_HEADLINE_LINES = ['SYSTEMS', 'BENEATH THE SURFACE'];
 
 // Set in bold wherever they appear in the hero copy, long or short.
-export const HERO_BODY_EMPHASIS = ['decide', 'compete', 'engage'];
+export const HERO_BODY_EMPHASIS = ['decide', 'compete'];
 
 export const HERO_CTA_LABEL = 'Look Beneath the Surface';
 
@@ -20,22 +20,39 @@ export const VIEW_ALL_WORK_LABEL = 'View All Work';
 // Under the wordmark in the nav (Navigation.jsx), one line.
 export const NAV_DESCRIPTOR = 'Systems & Interaction Designer';
 
+// The same words at every size.
 export const HERO_BODY_COPY =
-  'I design systems that shape how people decide, compete, and engage. My work focuses on the mechanics underneath the experience: the rules, feedback, and tradeoffs that turn interaction into something worth mastering. Across products and games, I build systems that reward intent.';
-
-export const HERO_BODY_COPY_MOBILE =
-  'I design systems that shape how people decide, compete, and engage. Across products and games, I turn rules, feedback, and tradeoffs into experiences that reward intent.';
+  'I design systems that shape how people decide and compete. Rules, feedback, and tradeoffs turn a simple interaction into something worth mastering. Across products and games, I build systems that reward intent.';
 
 export const ABOUT_TITLE = 'Shaped Through Iteration';
 
 export const ABOUT_PARAGRAPHS = [
-  'Every project has shaped how I approach the next, refining the process, challenging assumptions, and finding clearer ways to turn an idea into an experience. Over time, that process has expanded to move fluidly between systems thinking, visual design, and implementation. I’m most interested in the point where structure becomes experience, when rules, feedback, and tradeoffs take on a clear, expressive form people can understand and feel.',
-  'I co-founded the studio that became Forest Giant and spent fifteen years helping grow it from a small team into a multidisciplinary studio of more than thirty people. Today, my work ranges from shaping complex product systems at FundSeeder to building and testing combat mechanics in Slipstream. Prototyping allows me to carry ideas into playable form, where they can be tested through interaction rather than debated in the abstract.',
-  'I believe the strongest work comes from blended teams. Bringing designers, developers, stakeholders, and other disciplines into the process early exposes blind spots, surfaces constraints sooner, and gives each perspective a real hand in shaping the outcome. I often work between those groups, preserving intent as ideas move toward implementation and making sure no voice is lost, especially the user or player at the center of the system.'
+  'I’m a systems and interaction designer in Louisville, Kentucky. I co-founded Forest Giant and led it for fifteen years as we grew to more than thirty people. Today I design FundSeeder’s trader ranking system, and I’m building Second Sentence, a movement-driven third-person action shooter in Unreal.',
+  'I like getting an idea into someone’s hands early. For Second Sentence, I started with the camera so I could test how it felt to move through the world in third person. At Flying Axes, we built a prototype cage before we built the venue. I worked with a researcher, a UI designer, and developers to pare the scoreboard down to a name, a lane, a throw count, and a score. Seeing what people do the first time they try a prototype is still my favorite part of the work.',
 ];
 
+// Headline (accent, set in capitals by the stylesheet) and its supporting line.
 export const ABOUT_STATS = [
-  { value: '20+ Years', label: 'Designing interactive systems' },
+  { value: '20 Traders Seeded', label: 'Through FundSeeder as of October 2026' },
   { value: '15 Years · 30+ Person Team', label: 'Building and leading a multidisciplinary studio' },
-  { value: '150K Downloads · Top 5 Free Game', label: 'Mesa’s first week on iOS' }
+  { value: '150K Downloads · Top 5 Free Game', label: 'Mesa’s first week on iOS' },
 ];
+
+// The résumé is a static file in public/. It has to be there at deploy, or the
+// link is a 404.
+export const ABOUT_RESUME = { label: 'View Résumé (PDF)', href: '/jon-shaw-resume.pdf' };
+
+export const ABOUT_BLUESKY = {
+  label: 'Bluesky',
+  href: 'https://bsky.app/profile/jjonshaw.bsky.social',
+};
+
+// The art wall (src/artWall): its page title, and the link to it under the
+// portrait in About.
+export const ART_WALL_TITLE = 'Comics & Other Bad Ideas';
+export const ART_WALL_BACK_LABEL = 'Back to About';
+// One line under the wall's title: what it is, and roughly when. The span is
+// read from the files (Tumblr posts from 2014, the Playdate prototype now);
+// confirm before launch.
+export const ART_WALL_INTRO =
+  'Personal comics, illustration, posters and game art, from about 2014 to now.';

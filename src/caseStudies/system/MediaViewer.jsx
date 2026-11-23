@@ -24,18 +24,24 @@ const LightboxImpl = lazy(() => import('./MediaViewerLightbox.jsx'));
 
 const MediaViewerContext = createContext(null);
 
-const EMPTY_STATE = { slides: [], index: 0 };
+const EMPTY_STATE = { slides: [], index: 0, options: {} };
 
 /**
  * Our slide shape (deliberately not the library's):
- *   { src, alt, caption, width, height }
+ *   { src, alt, caption, note, width, height }
+ *   { type: 'video', src, poster, alt, caption, note, width, height }
  * `src` should be the highest-resolution source available for that item.
+ * `note` is a second line under the caption. A video plays muted, looping and
+ * inline, from its poster.
+ *
+ * open(slides, index, options): `options.pixelated` draws the set with hard
+ * pixel edges (pixel art, already scaled up by whole numbers).
  */
 export const MediaViewerProvider = ({ children }) => {
   const [state, setState] = useState(EMPTY_STATE);
   const triggerRef = useRef(null);
 
-  const open = useCallback((slides, index = 0) => {
+  const open = useCallback((slides, index = 0, options = {}) => {
     const usable = (Array.isArray(slides) ? slides : [slides]).filter(
       (slide) => slide && slide.src
     );
@@ -48,6 +54,7 @@ export const MediaViewerProvider = ({ children }) => {
     setState({
       slides: usable,
       index: Math.min(Math.max(index, 0), usable.length - 1),
+      options,
     });
   }, []);
 
@@ -83,7 +90,12 @@ export const MediaViewerProvider = ({ children }) => {
       {children}
       {isOpen && (
         <Suspense fallback={null}>
-          <LightboxImpl slides={state.slides} index={state.index} onClose={close} />
+          <LightboxImpl
+            slides={state.slides}
+            index={state.index}
+            pixelated={Boolean(state.options?.pixelated)}
+            onClose={close}
+          />
         </Suspense>
       )}
     </MediaViewerContext.Provider>

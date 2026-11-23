@@ -9,7 +9,7 @@
 
 export const secondSentenceContent = {
   intro: [
-    'A movement-driven third-person action shooter set inside an enormous interstellar prison cell. This devlog follows the game’s development and the systems-design decisions behind it.',
+    'A movement-driven third-person action shooter set inside an enormous cell aboard an interstellar prison ship. This devlog follows the game’s development and the systems-design decisions behind it.',
   ],
 
   // CaseStudyMetadata's { label, values }.

@@ -5,20 +5,19 @@
 // arrangement goes in a section's media slot. Everything else is content in
 // forestGiantContent.js.
 //
-// Tone rhythm, as in Mesa, Flying Axes and GE: every section sits on colour B
-// except two that paint no background at all, so the crystal shows through —
-// the hero, and the turn in the story where the leadership team builds the
-// practice together. Both follow from that: the registry entry must stay
-// 'reveal', and the overlay keeps the renderer awake whenever either is near
-// the viewport.
+// Five sections, the finishing pass (November 2026): the studio's history and
+// work in the opening, the tacit-knowledge problem, the critique method, the
+// project-prep guide, and the reflection. Tone marks a chapter change rather
+// than alternating: every section sits on colour B except two that paint no
+// background, so the crystal shows through — the hero, and the guide. Both
+// follow from that: the registry entry must stay 'reveal', and the overlay
+// keeps the renderer awake whenever either is near the viewport.
 
 import React from 'react';
 import {
   CaseStudyPage,
   CaseStudyHero,
-  CaseStudyOverview,
   SplitSection,
-  SequenceSection,
   FeatureSection,
   ConclusionSection,
   MediaGallery,
@@ -35,6 +34,8 @@ const ForestGiantCaseStudy = ({ project, onClose }) => {
       label={`${c.projectName} case study: ${c.title}`}
       onClose={onClose}
     >
+      {/* The studio's history is in the intro; three named examples of its
+          work run as a compact, captioned 3-up across the foot. */}
       <CaseStudyHero
         tone="a"
         background="none"
@@ -42,57 +43,41 @@ const ForestGiantCaseStudy = ({ project, onClose }) => {
         title={c.title}
         intro={c.hero.intro}
         media={c.hero.media}
-      />
-
-      {/* Three projects across the studio's range, beneath the narrative. */}
-      <CaseStudyOverview
-        tone="b"
-        title={c.overview.title}
-        body={c.overview.body}
-        metadata={c.overview.metadata}
-        media={<MediaGallery layout="3-up" items={c.overview.gallery} />}
+        metadata={c.hero.metadata}
+        after={<MediaGallery layout="3-up" items={c.hero.gallery} fit="cover" />}
       />
 
       <SplitSection
         tone="b"
         direction="text-left"
-        title={c.responsibility.title}
-        body={c.responsibility.body}
-        media={c.responsibility.media}
+        title={c.explicit.title}
+        body={c.explicit.body}
+        media={c.explicit.media}
       />
 
-      {/* The guide itself, beside how it was made. The paragraph on what the
-          guide gave project leads closes the section beneath the stage. */}
+      <SplitSection
+        tone="b"
+        direction="text-right"
+        title={c.critique.title}
+        body={c.critique.body}
+        media={c.critique.media}
+      />
+
+      {/* Four whole pages of the guide as a strip, swiped on a phone and read
+          full size in the viewer. */}
       <FeatureSection
         tone="a"
         background="none"
         align="start"
         title={c.practice.title}
         intro={c.practice.intro}
-        takeaway={c.practice.closing}
+        caption={c.practice.caption}
       >
-        <MediaGallery layout="2-up" items={c.practice.gallery} caption={c.practice.caption} />
+        <MediaRail items={c.practice.pages} />
       </FeatureSection>
 
-      {/* A worksheet over a session of the same kind: the guidance, then it in use. */}
-      <SplitSection
-        tone="b"
-        direction="text-right"
-        title={c.means.title}
-        body={c.means.body}
-        media={<MediaGallery layout="stacked" items={c.means.gallery} caption={c.means.caption} />}
-      />
-
-      {/* The work and the studio life the practice made room for. */}
-      <SequenceSection tone="b" title={c.possible.title} intro={c.possible.intro}>
-        <MediaRail items={c.possible.rail} caption={c.possible.caption} mobileHeight="68vw" />
-      </SequenceSection>
-
-      {/* No visual: the reflection closes the study. */}
       <ConclusionSection
         tone="b"
-        outcomeTitle="Outcomes"
-        outcomes={c.conclusion.outcomes}
         lessonsTitle={c.conclusion.lessonsTitle}
         lessons={c.conclusion.lessons}
       />

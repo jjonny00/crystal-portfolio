@@ -14,6 +14,9 @@
 //   Closing it from the page     history.go(-depth), to step off every entry the
 //                                case study pushed, so Back afterwards goes where
 //                                it went before the case study was opened.
+//   The art wall                 the same as a case study, one page deep: opening
+//                                it pushes /about/comics, closing it from the page
+//                                steps back off that entry, and Back closes it.
 //
 // Each case-study entry records its `depth`: how many entries this visit to the
 // case study has pushed, up to and including it. The entry a reader arrived on
@@ -24,7 +27,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NAVIGATION_DESTINATIONS } from './navigationIntent';
-import { parsePath, pathFor } from './routes';
+import { ART_WALL_PATH, parsePath, pathFor } from './routes';
 
 /** The URL for a settled scroll section id ('hero', 'project-project02', ...). */
 export const settledSectionToPath = (sectionId) => {
@@ -53,15 +56,16 @@ export const routeToSectionId = (route) => {
   }
 };
 
-const historyState = (caseStudyProjectId, depth = 0) => ({
+const historyState = (caseStudyProjectId, depth = 0, artWall = false) => ({
   crystalRoute: true,
   caseStudy: caseStudyProjectId || null,
-  depth: caseStudyProjectId ? depth : 0,
+  artWall: Boolean(artWall),
+  depth: caseStudyProjectId || artWall ? depth : 0,
 });
 
-/** How many entries back the case study's open began. Entries written before depth was recorded count as one. */
+/** How many entries back the layer's open began. Entries written before depth was recorded count as one. */
 const entryDepth = (state) => {
-  if (!state?.caseStudy) return 0;
+  if (!state?.caseStudy && !state?.artWall) return 0;
   return Number.isInteger(state.depth) ? state.depth : 1;
 };
 
@@ -82,6 +86,10 @@ export const useRouteSync = ({
   onOpenCaseStudy,
   onCloseCaseStudy,
   onCaseStudySubpathChange,
+  // The art wall: open, and how to open or close it from a popped entry.
+  artWallOpen = false,
+  onOpenArtWall,
+  onCloseArtWall,
   onNavigate,
 }) => {
   const [routePath, setRoutePath] = useState(initialRoute.path);
@@ -96,9 +104,27 @@ export const useRouteSync = ({
   const routePathRef = useRef(initialRoute.path);
   const caseStudyOpenRef = useRef(caseStudyOpen);
   caseStudyOpenRef.current = caseStudyOpen;
+  const lastArtWallOpenRef = useRef(artWallOpen);
+  const artWallOpenRef = useRef(artWallOpen);
+  artWallOpenRef.current = artWallOpen;
+  const artWallFromHistoryRef = useRef(false);
 
-  const callbacksRef = useRef({ onOpenCaseStudy, onCloseCaseStudy, onCaseStudySubpathChange, onNavigate });
-  callbacksRef.current = { onOpenCaseStudy, onCloseCaseStudy, onCaseStudySubpathChange, onNavigate };
+  const callbacksRef = useRef({
+    onOpenCaseStudy,
+    onCloseCaseStudy,
+    onCaseStudySubpathChange,
+    onOpenArtWall,
+    onCloseArtWall,
+    onNavigate,
+  });
+  callbacksRef.current = {
+    onOpenCaseStudy,
+    onCloseCaseStudy,
+    onCaseStudySubpathChange,
+    onOpenArtWall,
+    onCloseArtWall,
+    onNavigate,
+  };
 
   // The scroll container restores itself (it is not the document), and the
   // browser's own restoration would only fight the scene on a popped entry.
@@ -107,7 +133,7 @@ export const useRouteSync = ({
     // Tag the entry the reader arrived on, so returning to it with Forward/Back
     // knows whether it was a case study.
     window.history.replaceState(
-      historyState(caseStudyOpen ? activeProjectId : null),
+      historyState(caseStudyOpen ? activeProjectId : null, 0, artWallOpen),
       '',
       window.location.pathname
     );
@@ -119,14 +145,43 @@ export const useRouteSync = ({
   // they have since asked to go; after, the settled section says. Mid-scroll
   // (null) holds the last URL.
   const subpath = caseStudyOpen ? caseStudySubpath || null : null;
-  const derivedPath = caseStudyOpen && activeProjectId
-    ? pathFor(NAVIGATION_DESTINATIONS.CASE_STUDY, activeProjectId, subpath)
-    : sceneMounted
-      ? settledSectionToPath(settledSection)
-      : preSceneRoute.path;
+  const derivedPath = artWallOpen
+    ? ART_WALL_PATH
+    : caseStudyOpen && activeProjectId
+      ? pathFor(NAVIGATION_DESTINATIONS.CASE_STUDY, activeProjectId, subpath)
+      : sceneMounted
+        ? settledSectionToPath(settledSection)
+        : preSceneRoute.path === ART_WALL_PATH
+          ? pathFor(NAVIGATION_DESTINATIONS.ABOUT)
+          : preSceneRoute.path;
 
   useEffect(() => {
     if (awaitingPopRef.current) return;
+
+    // The art wall: pushed when opened from the page, stepped back off when
+    // closed from it. A popped entry is already where it should be.
+    const artWallWasOpen = lastArtWallOpenRef.current;
+    lastArtWallOpenRef.current = artWallOpen;
+    if (artWallOpen && !artWallWasOpen) {
+      if (artWallFromHistoryRef.current) {
+        artWallFromHistoryRef.current = false;
+      } else {
+        window.history.pushState(historyState(null, 1, true), '', ART_WALL_PATH);
+      }
+      if (ART_WALL_PATH !== routePathRef.current) {
+        routePathRef.current = ART_WALL_PATH;
+        setRoutePath(ART_WALL_PATH);
+      }
+      return;
+    }
+    if (!artWallOpen && artWallWasOpen) {
+      const wallDepth = window.history.state?.artWall ? entryDepth(window.history.state) : 0;
+      if (wallDepth > 0) {
+        awaitingPopRef.current = true;
+        window.history.go(-wallDepth);
+        return;
+      }
+    }
 
     const wasOpen = lastCaseStudyOpenRef.current;
     lastCaseStudyOpenRef.current = caseStudyOpen;
@@ -171,7 +226,7 @@ export const useRouteSync = ({
       routePathRef.current = derivedPath;
       setRoutePath(derivedPath);
     }
-  }, [derivedPath, caseStudyOpen, activeProjectId, subpath, historyTick]);
+  }, [derivedPath, caseStudyOpen, activeProjectId, subpath, artWallOpen, historyTick]);
 
   const handlePopState = useCallback((event) => {
     if (awaitingPopRef.current) {
@@ -182,6 +237,26 @@ export const useRouteSync = ({
 
     const route = parsePath(window.location.pathname);
     const caseStudyProjectId = event.state?.caseStudy || null;
+
+    if (event.state?.artWall || route?.artWall) {
+      // Forward onto the art wall (or Back onto it from a page it opened).
+      if (!artWallOpenRef.current) {
+        artWallFromHistoryRef.current = true;
+        callbacksRef.current.onOpenArtWall?.();
+      }
+      return;
+    }
+
+    if (artWallOpenRef.current) {
+      // Back off the art wall, onto About underneath it.
+      lastArtWallOpenRef.current = false;
+      callbacksRef.current.onCloseArtWall?.();
+      if (route?.destination === NAVIGATION_DESTINATIONS.ABOUT) {
+        routePathRef.current = route.path;
+        setRoutePath(route.path);
+        return;
+      }
+    }
 
     if (caseStudyProjectId) {
       // Forward into a case study, or Back onto one (or between its pages): it

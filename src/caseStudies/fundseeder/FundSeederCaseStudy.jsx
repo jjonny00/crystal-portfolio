@@ -5,17 +5,11 @@
 // goes in each section's media slot. Everything else is content in
 // fundseederContent.js.
 //
-// Tone rhythm: the three sections that would otherwise sit on colour A paint no
-// background at all, so the crystal shows through them — the hero, the tiers,
-// and identity. Colour A is the facet behind them, so a section that would have
-// been mint is the scene instead, and the dark sections between them read as
-// the page closing back over it.
-//
-// Two things follow from that, and both are load-bearing:
-//   - the registry entry must stay `reveal`, or the colour wash would paint
-//     over the very thing these sections are showing;
-//   - the overlay keeps the renderer awake whenever one of them is near the
-//     viewport, so scrolling back never lands on a frozen, empty frame.
+// Nine sections (globe media pass, November 2026). The hero and the tiers
+// paint no background, so the crystal shows through them, as on every case
+// study; the rest sit on colour B. Those two are load-bearing: the registry
+// entry must stay `reveal`, and the overlay keeps the renderer awake whenever
+// one is near the viewport.
 
 import React from 'react';
 import {
@@ -26,10 +20,10 @@ import {
   SequenceSection,
   FeatureSection,
   ConclusionSection,
-  MediaGallery,
+  MediaRail,
 } from '../system';
+import StrategyPaths from './StrategyPaths';
 import TierLadder from './TierLadder';
-import SelectionFlow from './SelectionFlow';
 import { fundseederContent } from './fundseederContent';
 
 const FundSeederCaseStudy = ({ project, onClose }) => {
@@ -41,6 +35,8 @@ const FundSeederCaseStudy = ({ project, onClose }) => {
       label={`${c.projectName} case study: ${c.title}`}
       onClose={onClose}
     >
+      {/* The "Since your last visit" loop, bleeding off the right at desktop,
+          full width above the copy on phones; the sample-data line under it. */}
       <CaseStudyHero
         tone="a"
         background="none"
@@ -48,109 +44,79 @@ const FundSeederCaseStudy = ({ project, onClose }) => {
         title={c.title}
         intro={c.hero.intro}
         media={c.hero.media}
+        metadata={c.hero.metadata}
       />
 
-      {/* The public product and the internal one, side by side from the start:
-          the caption's claim that they are two sides of one system is easier to
-          accept when all three are in view at once. */}
+      {/* What one added strategy sets off: split, one link across, merge at S. */}
       <CaseStudyOverview
         tone="b"
         title={c.overview.title}
         body={c.overview.body}
-        metadata={c.overview.metadata}
-        media={
-          <MediaGallery layout="3-up" items={c.overview.gallery} caption={c.overview.caption} />
-        }
+        media={<StrategyPaths {...c.overview.paths} />}
       />
 
-      {/* The tier ladder is the case study's centrepiece, so it gets the centred
-          feature treatment and the full width of a stage. */}
+      <SplitSection
+        tone="b"
+        direction="text-left"
+        title={c.rivals.title}
+        body={c.rivals.body}
+        media={c.rivals.media}
+      />
+
+      {/* The tiers on mint, the crystal behind them. */}
       <FeatureSection
         tone="a"
         background="none"
+        align="center"
         title={c.tiers.title}
         intro={c.tiers.intro}
-        caption={c.tiers.caption}
-        takeaway={c.tiers.takeaway}
       >
         <TierLadder {...c.tiers.ladder} />
       </FeatureSection>
 
-      {/* Two views of the same ranking — the list and the filters that narrow it
-          — so they read as one pair rather than two separate screens. Left
-          aligned: the copy is an argument about structure, not a reveal. */}
       <FeatureSection
         tone="b"
-        align="start"
-        title={c.leaderboard.title}
-        intro={c.leaderboard.intro}
-      >
-        <MediaGallery
-          layout="2-up"
-          items={c.leaderboard.gallery}
-          caption={c.leaderboard.caption}
-        />
-      </FeatureSection>
+        align="center"
+        title={c.seeded.title}
+        intro={c.seeded.intro}
+        media={c.seeded.media}
+        caption={c.seeded.media.caption}
+        takeaway={c.seeded.takeaway}
+      />
 
-      {/* Media bleeds off the left, copy on the right. The three questions are a
-          list because the copy introduces them as one set. */}
       <SplitSection
         tone="b"
         direction="text-right"
-        title={c.nextRival.title}
-        body={[
-          ...c.nextRival.body,
-          <ul key="questions">
-            {c.nextRival.questions.map((question) => (
-              <li key={question}>{question}</li>
-            ))}
-          </ul>,
-        ]}
-        takeaway={c.nextRival.takeaway}
-        media={
-          <MediaGallery
-            layout="stacked"
-            items={c.nextRival.gallery}
-            caption={c.nextRival.caption}
-          />
-        }
+        title={c.countries.title}
+        body={c.countries.body}
+        media={c.countries.media}
       />
 
-      <SplitSection
-        tone="a"
-        background="none"
-        direction="text-left"
-        title={c.identity.title}
-        body={c.identity.body}
-        media={
-          <MediaGallery
-            layout="stacked"
-            items={c.identity.gallery}
-            caption={c.identity.caption}
-          />
-        }
-      />
-
-      {/* Where the ladder leads. A sequence rather than a feature: the diagram is
-          a pipeline, and the section's job is to hand the competition over to
-          the review process that ends it. */}
+      {/* The pinned row in the wide stage, so the table text stays readable. */}
       <SequenceSection
         tone="b"
-        title={c.destination.title}
-        intro={c.destination.intro}
-        caption={c.destination.caption}
-        takeaway={c.destination.takeaway}
-      >
-        <SelectionFlow {...c.destination.flow} />
-      </SequenceSection>
+        title={c.compare.title}
+        intro={c.compare.body}
+        media={c.compare.pinned}
+        caption={c.compare.pinned.caption}
+      />
 
+      {/* Signal's two details at one shared height, so mixed ratios stay level:
+          the pairwise table at its own height, the connection strip beside it. */}
+      <FeatureSection tone="b" align="start" title={c.signal.title} intro={c.signal.intro}>
+        <MediaRail items={c.signal.media} height="275px" mobileHeight="220px" />
+      </FeatureSection>
+
+      {/* Counts, so set as figures: 0 → 20 seeded leads, $256M is secondary,
+          and the date is said once for the pair. */}
       <ConclusionSection
         tone="b"
         outcomeTitle="Outcomes"
+        outcomeStyle="figure"
         outcomes={c.conclusion.outcomes}
+        outcomeNote={c.conclusion.outcomeNote}
         lessonsTitle={c.conclusion.lessonsTitle}
         lessons={c.conclusion.lessons}
-        takeaway={c.conclusion.takeaway}
       />
     </CaseStudyPage>
   );

@@ -1,6 +1,6 @@
 // Added keyboard control for animation debug panel
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useScrollProgress } from '../../hooks/useScrollProgress';
 import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationController';
 import { getSceneFacetKeyByProjectId } from '../../data/projects';
@@ -63,6 +63,14 @@ const MasterAnimationCoordinator = ({
   }, []);
 
   // SIMPLIFIED: Direct scroll updates with minimal debouncing
+  //
+  // A change of section counts as well as a change of progress. Progress is
+  // normalised to the page's length, and that length changes when the project
+  // sections come into the scroll: from the overview (2nd of 3 sections, 0.5)
+  // the jump to FundSeeder (5th of 9, also 0.5) lands on the same progress, so
+  // nothing re-ran the controller and its zone stayed 'overview' — the overview
+  // labels never left. The section is what the controller reads the zone from.
+  const lastDrivenSectionRef = useRef(scrollData.currentSection);
   useEffect(() => {
     const animationDriverProgress =
       scrollData.rawScrollProgress ?? scrollData.scrollProgress;
@@ -71,14 +79,17 @@ const MasterAnimationCoordinator = ({
     const significantChange = Math.abs(
       animationDriverProgress - (animationController.animationState.scrollProgress || 0)
     ) > 0.001;
-    
-    if (significantChange) {
+    const sectionChanged = scrollData.currentSection !== lastDrivenSectionRef.current;
+
+    if (significantChange || sectionChanged) {
+      lastDrivenSectionRef.current = scrollData.currentSection;
       // Direct update - no complex timing coordination needed
       animationController.updateFromScrollProgress(animationDriverProgress);
     }
   }, [
     scrollData.rawScrollProgress,
     scrollData.scrollProgress,
+    scrollData.currentSection,
     animationController
   ]);
 

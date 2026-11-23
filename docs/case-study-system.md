@@ -90,11 +90,12 @@ A section can also paint no background at all with `background="none"`, letting
 the 3D scene show through it; foreground colours still come from its tone —
 which works because the facet behind is already colour A, so tone-A ink lands on
 the colour it was chosen against. `CaseStudyHero`, `FeatureSection` and
-`SplitSection` take the prop. Mesa uses it twice: the hero sits directly on the
-crystal facet, and "Tight, Open, Tight" opens the page back onto it further down.
-FundSeeder goes further and drops every tone-A background, so the scene stands in
-for colour A across the whole case study. Two things follow automatically, and
-both matter if you add another one:
+`SplitSection` take the prop. Every case study uses it twice: the hero sits
+directly on the crystal facet, and one later section, at a turn in the story,
+opens the page back onto it (Mesa's board progression, for one). Every other
+section sits on colour B, so tone marks a chapter change rather than alternating
+section by section. Two things follow automatically, and both matter if you add
+another one:
 
 - The case study must declare `entry: 'reveal'` in the registry, or the colour
   wash would paint over the very thing the hero is sitting on.
@@ -107,12 +108,12 @@ both matter if you add another one:
 
 | Component | Shape |
 | --- | --- |
-| `CaseStudyHero` | Project name, case study title, intro, hero media. Mobile is a different composition, not a shrunk grid. |
-| `CaseStudyOverview` | Narrative + media in a content column, metadata rail alongside. On mobile the rail moves ahead of the narrative. |
+| `CaseStudyHero` | Project name, case study title, intro, hero media, and the project's `metadata` (role, team, platform…) under the intro in two columns. An optional `after` is a full-width row under it all (Forest Giant's compact gallery). Mobile is a different composition, not a shrunk grid. |
+| `CaseStudyOverview` | Narrative + media in a content column. |
 | `SplitSection` | `direction="text-left"` / `"text-right"`. Media bleeds off the outer edge. Mobile collapses to title → body → media → caption. An optional `takeaway` closes the text column, since the media is beside it rather than above. |
 | `SequenceSection` | Title, intro, a wide stage, caption, optional takeaway. |
 | `FeatureSection` | Centred title, intro, a full-bleed stage, caption, optional takeaway. |
-| `ConclusionSection` | Outcome items and reflection; two columns on desktop, stacked on mobile. |
+| `ConclusionSection` | Outcome items and reflection; two columns on desktop, stacked on mobile. `outcomeStyle="figure"` sets counts as large numerals with the unit beneath; `outcomeNote` is one line under them (a reporting date, said once). With no outcomes the reflection runs alone at the overview's measure. |
 
 A body is a string, an array of strings, or React nodes mixed into that array —
 which is how a list, a pull quote, or a one-off element enters a section without
@@ -156,7 +157,9 @@ not the projects either side have case studies of their own.
 
 ## Media
 
-`CaseStudyMedia` is the single media primitive: responsive sources, `contain` /
+`CaseStudyMedia` is the single media primitive (images, and looping video by a
+`video` base path: see `LoopVideo.jsx`; `frame="screen" | "none"` for
+product captures): responsive sources, `contain` /
 `cover`, aspect-ratio reservation (no layout shift), lazy loading below the fold,
 optional enlargement, and a `fullSrc` used only by the enlarged view.
 `MediaGallery` arranges several of them (`2-up`, `3-up`, `stacked`, collapsing to
@@ -174,16 +177,23 @@ hold other media off the edge, and the rail takes that back, so it belongs in a
 of arrows sits above it at the top right, on the page gutter, stepping one item
 at a time (each dims at its end); a row that fits renders no controls at all.
 The rail measures this itself as it resizes and its images load, so a case study
-never opts in. Mesa's "One Turn, Several Decisions" uses it for the five screens
-of a turn.
+never opts in. Mesa's "Every Move Changes the Board for Both Players" uses it for
+the five screens of a turn. An item may caption itself (a step label): the
+caption wraps to the item's picture rather than widening it, and a placeholder
+item takes the rail's height and its declared ratio, like the image it stands in
+for.
 
 `FeaturedGallery` is the shape `MediaGallery` cannot make: one lead item beside a
 grid of supporting ones, for a set too large for `3-up` with one member that is
 the point. It derives the split between the two columns from the aspect ratios
 its media declares, so the lead and the grid resolve to the same height at any
 width — no case study has to tune it. On phones the lead moves above the grid and
-the grid holds two columns. Mesa's "The Cost of Power" uses it for the power key
-plus the six ability cards.
+the grid holds two columns (`mobileColumns={1}` for items that must be read in
+place rather than enlarged; a landscape lead takes the full width, a portrait
+one a share of it). Forest Giant uses it twice: the studio's work in its
+overview, and a process-guide page beside two readable excerpts. The lead is
+stretched out of flow on desktop, so it takes no caption of its own; caption the
+supporting items or the set.
 
 Media with no `src` renders `PlaceholderMedia` at the exact size the real asset
 will occupy, naming the expected asset (always to assistive tech, and on screen

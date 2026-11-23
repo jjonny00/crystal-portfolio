@@ -52,8 +52,13 @@ const FeaturedGallery = ({
   /** The one item the section is about. A media descriptor, like any other. */
   featured = null,
   items = [],
-  /** Columns in the supporting grid at desktop; always 2 on phones. */
+  /** Columns in the supporting grid at desktop. */
   columns = 3,
+  /**
+   * Columns in the supporting grid on phones. 2 suits thumbnails of a set; 1
+   * suits items that must be read on the page, such as document excerpts.
+   */
+  mobileColumns = 2,
   /** Grid width ÷ lead width. Omit to derive it from the supplied ratios. */
   split = null,
   /** Measure of the whole exhibit, and with it its height. Omit for the copy's. */
@@ -93,6 +98,8 @@ const FeaturedGallery = ({
     return (usableColumns * itemRatio) / (rows * leadRatio);
   }, [split, featured, items, usableColumns]);
 
+  const leadIsLandscape = (parseAspectRatio(featured?.aspectRatio) || 0) >= 1;
+
   if (!featured && !items.length) return null;
 
   const openAt = (index) => (slides.length ? () => viewer.open(slides, index) : null);
@@ -104,8 +111,12 @@ const FeaturedGallery = ({
         style={{
           '--cs-featured-split': `${columnSplit.toFixed(3)}fr`,
           '--cs-featured-columns': usableColumns,
+          '--cs-featured-columns-mobile': Math.max(1, Math.round(mobileColumns) || 1),
           ...(maxWidth ? { '--cs-featured-max': maxWidth } : null),
         }}
+        // Phones narrow a portrait lead so it doesn't outrun the screen; a
+        // landscape one is already short enough to take the full width.
+        data-lead={leadIsLandscape ? 'landscape' : undefined}
       >
         {featured && (
           <div className="cs-featured__lead">

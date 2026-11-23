@@ -80,9 +80,17 @@ const caseStudyShellAssets = ['App', 'CaseStudyOverlay'].reduce((assets, name) =
 
 const buildPage = async (route) => {
   const meta = entry.getRouteMeta(route);
-  const { html, visible, caseStudySlug, modules = [] } = await entry.renderRoute(route);
+  const { html, visible, caseStudySlug, shell = false, modules = [] } = await entry.renderRoute(route);
 
   let head = entry.renderHeadTagsHtml(meta);
+  // A page on screen before the app (the art wall): the app's own stylesheets.
+  if (shell && !caseStudySlug) {
+    const links = [
+      ...[...caseStudyShellAssets.css].filter((href) => !entryAssets.css.has(href)).map((href) => `<link rel="stylesheet" crossorigin href="${href}" />`),
+      ...[...caseStudyShellAssets.js].filter((href) => !entryAssets.js.has(href)).map((href) => `<link rel="modulepreload" crossorigin href="${href}" />`),
+    ];
+    head += `\n    ${links.join('\n    ')}`;
+  }
   if (caseStudySlug) {
     const chunkKey = findCaseStudyChunkKey(caseStudySlug);
     if (!chunkKey) fail(`no chunk in the manifest for case study "${caseStudySlug}".`);
