@@ -20,8 +20,8 @@ export const projectBackgrounds = {
     colorB: '#102326'
   },
   project02: {
-    colorA: '#16283e',
-    colorB: '#00364d'
+    colorA: '#191919',
+    colorB: '#0b0b0b'
   },
   project03: {
     // FundSeeder. The lightest colorA in the set by a wide margin, and the one
