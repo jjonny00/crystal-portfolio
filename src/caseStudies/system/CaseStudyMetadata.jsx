@@ -53,8 +53,14 @@ const CaseStudyMetadata = ({
       <Heading className="cs-visually-hidden">{title}</Heading>
       <dl className="cs-meta">
         {entries.map((entry) => (
-          <div className="cs-meta__group" key={entry.label}>
-            <dt className="type-subhead-sm cs-meta__label">{entry.label}</dt>
+          <div
+            className="cs-meta__group"
+            key={entry.label}
+            // The label spans its values' rows (caseStudy.css), so a label that
+            // wraps never pushes the first value away from the second.
+            style={{ '--cs-meta-values': entry.values.length }}
+          >
+            <dt className="type-caption-caps cs-meta__label">{entry.label}</dt>
             {entry.values.map((value, index) => (
               <dd className="type-body-sm cs-meta__value" key={`${entry.label}-${index}`}>
                 {typeof value === 'string' ? <CaseStudyInline text={value} /> : value}

@@ -4,7 +4,7 @@
 // the project's metadata (role, team, platform…).
 //
 // Desktop places the project name across the full width, the copy in a narrow
-// left column with the metadata under it in two columns, and the media
+// left column with the metadata under it (one ruled row per category), and the media
 // bleeding off the right edge. Mobile is a different composition, not a shrunk grid:
 // project name, case study title, media, copy, then the metadata. Both come out of the same markup — only the grid areas change.
 

@@ -172,8 +172,10 @@
   color: color-mix(in srgb, var(--cs-fg) 55%, transparent);
 }
 
+/* Secondary to the body, but read on every colour a case study takes (the
+   saturated yellows and reds too), so only a little lighter than it. */
 .cs-caption {
-  color: color-mix(in srgb, var(--cs-fg) 70%, transparent);
+  color: color-mix(in srgb, var(--cs-fg) 84%, transparent);
 }
 
 /* --------------------------------------------------------------------------
@@ -681,8 +683,7 @@
   margin-inline-end: calc(-1 * var(--cs-edge));
 }
 
-/* The project's metadata, under the intro on its left edge: two columns at
-   every width, the phone's grid (.cs-meta, mobile block) on desktop too. */
+/* The project's metadata, under the intro on its left edge (.cs-meta). */
 .cs-hero__meta {
   grid-area: meta;
   min-width: 0;
@@ -693,12 +694,6 @@
   grid-area: after;
   min-width: 0;
   margin-top: clamp(36px, 4.6vw, 80px);
-}
-
-.cs-hero__meta .cs-meta {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: clamp(16px, 5vw, 28px);
-  row-gap: clamp(18px, 5vw, 26px);
 }
 
 /* --------------------------------------------------------------------------
@@ -783,20 +778,41 @@
    Metadata (At a Glance)
    -------------------------------------------------------------------------- */
 
+/* A spec sheet: one row per category, a hairline above each and one under the
+   last. The category is a small muted caps label in a column of its own; its
+   items stack beside it in the body face, so the two never read as one list
+   however long either runs. Every row shares the label column, so the items
+   line up down the whole block. */
 .cs-meta {
+  --cs-meta-rule: color-mix(in srgb, var(--cs-fg) 22%, transparent);
+  --cs-meta-label-width: clamp(96px, 8.4vw, 148px);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: clamp(18px, 1.6vw, 28px);
+  border-bottom: 1px solid var(--cs-meta-rule);
 }
 
-/* Label is .type-subhead-sm, value .type-body-sm (type.css). */
+.cs-meta__group {
+  display: grid;
+  grid-template-columns: var(--cs-meta-label-width) minmax(0, 1fr);
+  column-gap: clamp(16px, 1.6vw, 28px);
+  padding-block: clamp(12px, 1.05vw, 18px);
+  border-top: 1px solid var(--cs-meta-rule);
+}
+
+/* Label is .type-caption-caps, value .type-body-sm (type.css). The label spans
+   all its values' rows (--cs-meta-values, set per group) and sits on the first
+   value's baseline. */
 .cs-meta__label {
-  color: color-mix(in srgb, var(--cs-fg) 70%, transparent);
-  margin-bottom: 0.35em;
+  grid-column: 1;
+  grid-row: 1 / span var(--cs-meta-values, 1);
+  align-self: baseline;
+  color: color-mix(in srgb, var(--cs-fg) 78%, transparent);
 }
 
 .cs-meta__value {
-  color: color-mix(in srgb, var(--cs-fg) 90%, transparent);
+  grid-column: 2;
+  align-self: baseline;
+  color: var(--cs-fg);
 }
 
 /* --------------------------------------------------------------------------
@@ -1556,10 +1572,15 @@
     grid-template-columns: repeat(var(--cs-featured-columns-mobile, 2), minmax(0, 1fr));
   }
 
+  /* The same rows as desktop; the label column takes a share of the narrow
+     screen instead. */
   .cs-meta {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: clamp(16px, 5vw, 28px);
-    row-gap: clamp(18px, 5vw, 26px);
+    --cs-meta-label-width: clamp(92px, 28vw, 124px);
+  }
+
+  .cs-meta__group {
+    column-gap: clamp(12px, 4vw, 20px);
+    padding-block: clamp(10px, 3vw, 14px);
   }
 
   /* Split: title, body, media, caption — regardless of desktop direction. */

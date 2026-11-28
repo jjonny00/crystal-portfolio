@@ -108,7 +108,7 @@ another one:
 
 | Component | Shape |
 | --- | --- |
-| `CaseStudyHero` | Project name, case study title, intro, hero media, and the project's `metadata` (role, team, platform…) under the intro in two columns. An optional `after` is a full-width row under it all (Forest Giant's compact gallery). Mobile is a different composition, not a shrunk grid. |
+| `CaseStudyHero` | Project name, case study title, intro, hero media, and the project's `metadata` (role, team, platform…) under the intro as a spec sheet: one ruled row per category, the label in small muted caps in its own column, the values stacked beside it. An optional `after` is a full-width row under it all (Forest Giant's compact gallery). Mobile is a different composition, not a shrunk grid. |
 | `CaseStudyOverview` | Narrative + media in a content column. An optional `aside` puts one more piece of media in a right-hand column (46/54), level with the first paragraph and bleeding off the right edge; it stacks after the narrative below 1200px. |
 | `SplitSection` | `direction="text-left"` / `"text-right"`. Media bleeds off the outer edge. Mobile collapses to title → body → media → caption. An optional `takeaway` closes the text column, since the media is beside it rather than above. |
 | `SequenceSection` | Title, intro, a wide stage, caption, optional takeaway. |

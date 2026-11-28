@@ -115,6 +115,14 @@
   min-width: 0;
 }
 
+/* The status rail is a narrow column beside the intro: a narrower label column
+   (its labels wrap) leaves the values room for a line each. */
+@media (min-width: 768px) {
+  .dl-intro__status .cs-meta {
+    --cs-meta-label-width: clamp(80px, 6vw, 104px);
+  }
+}
+
 /* --------------------------------------------------------------------------
    Archive: entries
    -------------------------------------------------------------------------- */

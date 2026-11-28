@@ -12,13 +12,15 @@
      selected project    headline, subhead-sm, body
      case study          headline (project name), headline-sm (case study
                          title and section headers), body, caption (under
-                         media), subhead-sm (labels above lists: metadata,
-                         outcomes), body-sm (the entries under those labels)
+                         media), caption-caps (the metadata's categories),
+                         subhead-sm (labels above lists: outcomes), body-sm
+                         (the entries beside or under those labels)
      loader              caption-caps (the status inside the rings)
 
    caption-caps is caption set in capitals, a size down (~87%) so its capitals
    read at the caption's size: capitals at the same size look much larger than
-   mixed case. Every other metric is caption's, and follows it.
+   mixed case, and tracked a touch. Every other metric is caption's, and
+   follows it.
 
    The fluid sizes interpolate between the case-study system's two reference
    widths (402px mobile, 1728px desktop), so at those widths each style lands on
@@ -139,18 +141,22 @@
   letter-spacing: -0.01em;
 }
 
+/* A weight up from the body's 300: at caption sizes the light cut thins out,
+   above all on the saturated case-study colours. */
 .type-caption,
 .type-caption-caps {
-  font-size: clamp(13px, calc(0.15vw + 12.39px), 15px);
-  font-weight: 300;
+  font-size: clamp(14px, calc(0.15vw + 13.39px), 16px);
+  font-weight: 400;
   font-stretch: 87.5%;
   --wdth: 87.5;
   line-height: 1.45;
   letter-spacing: 0;
 }
 
+/* Capitals this small run together untracked, so they take a little. */
 .type-caption-caps {
-  font-size: clamp(11px, calc(0.15vw + 10.39px), 13px);
+  font-size: clamp(12px, calc(0.15vw + 11.39px), 14px);
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
@@ -218,11 +224,11 @@
   }
 
   .type-caption {
-    font-size: clamp(14px, 3.75vw, 16px); /* 13 -> 15 */
+    font-size: clamp(14.5px, 3.85vw, 16px); /* 14 -> 15.5 */
   }
 
   .type-caption-caps {
-    font-size: clamp(12px, 3.25vw, 14px); /* 11 -> 13 */
+    font-size: clamp(13px, 3.5vw, 14.5px); /* 12 -> 14 */
   }
 }
 
