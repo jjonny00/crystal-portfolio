@@ -186,6 +186,11 @@
   min-width: 0;
 }
 
+/* noUpscale: capped at 100% (max-width set inline), centred in its slot. */
+.cs-media--no-upscale {
+  margin-inline: auto;
+}
+
 .cs-media__frame {
   position: relative;
   display: block;
@@ -282,12 +287,17 @@
   opacity: 1;
 }
 
-/* Pause / play: small and quiet in a corner, always there. */
-.cs-loop__toggle {
+/* Expand and pause / play: small and quiet in a corner, always there. */
+.cs-loop__controls {
   position: absolute;
   inset-block-end: clamp(8px, 0.9vw, 14px);
   inset-inline-end: clamp(8px, 0.9vw, 14px);
   z-index: 1;
+  display: flex;
+  gap: 8px;
+}
+
+.cs-loop__button {
   display: grid;
   place-items: center;
   inline-size: 34px;
@@ -304,20 +314,35 @@
   transition: opacity 160ms ease, background-color 160ms ease;
 }
 
-.cs-loop__toggle svg {
+.cs-loop__button svg {
   inline-size: 14px;
   block-size: 14px;
 }
 
-.cs-loop__toggle:hover,
-.cs-loop__toggle:focus-visible {
+.cs-loop__button:hover,
+.cs-loop__button:focus-visible {
   opacity: 1;
   background-color: rgb(8 12 22 / 0.82);
 }
 
-.cs-loop__toggle:focus-visible {
+.cs-loop__button:focus-visible {
   outline: 2px solid var(--cs-fg);
   outline-offset: 2px;
+}
+
+/* Full screen (the expand button): the whole frame, letterboxed, and shown
+   from the first moment rather than waiting to fade in. Two rules, because
+   an unknown selector would drop a shared one. */
+.cs-loop__video:fullscreen {
+  opacity: 1;
+  object-fit: contain;
+  background-color: #000;
+}
+
+.cs-loop__video:-webkit-full-screen {
+  opacity: 1;
+  object-fit: contain;
+  background-color: #000;
 }
 
 /* Placeholder standing in for artwork that has not been supplied yet. It is
@@ -706,6 +731,52 @@
   margin-top: clamp(20px, 2.6vw, 45px);
   /* The prototype gallery sits in a portrait 3-up in the reference. */
   --cs-frame-ratio: 3 / 4;
+}
+
+/* With an aside (CaseStudyOverview's `aside`): the narrative and its media on
+   the left, the aside on the right, its top level with the first paragraph
+   (row 2, the row the copy starts in). The aside gets slightly more than half
+   of the columns and then bleeds off the right edge of the screen, like a
+   split's media, growing with it; its caption stays on the page gutter.
+   Below 1200px the aside stacks after the narrative, at the content width. */
+.cs-overview__aside {
+  min-width: 0;
+}
+
+@media (min-width: 1200px) {
+  .cs-overview--aside .cs-overview__inner {
+    grid-template-columns: minmax(0, 46fr) minmax(0, 54fr);
+    column-gap: clamp(40px, 4.4vw, 80px);
+  }
+
+  .cs-overview--aside .cs-overview__aside {
+    grid-column: 2;
+    grid-row: 2;
+    margin-inline-end: calc(-1 * var(--cs-edge));
+  }
+
+  .cs-overview--aside .cs-overview__aside .cs-media__caption {
+    padding-inline-end: var(--cs-edge);
+  }
+}
+
+@media (max-width: 1199.98px) {
+  .cs-overview--aside .cs-overview__inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-overview--aside .cs-overview__aside {
+    grid-column: 1;
+    grid-row: 3;
+    margin-top: clamp(28px, 3.4vw, 56px);
+  }
+}
+
+/* On a phone the grid's row gap already spaces it. */
+@media (max-width: 767.98px) {
+  .cs-overview--aside .cs-overview__aside {
+    margin-top: 0;
+  }
 }
 
 /* --------------------------------------------------------------------------

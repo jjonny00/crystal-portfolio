@@ -19,23 +19,31 @@ Slots follow the finishing pass (November 2026).
 
 | Slot | Asset | Placement |
 | --- | --- | --- |
-| `hero.media` | `public/media/fundseeder/fs-last-visit-*` (crop `1272:708:84:70`) | Video, frameless (hard edges); the sample-data line is its caption |
+| `hero.media` | `public/media/fundseeder/fs-last-visit-*` (1272×708) | Video, frameless (hard edges); the sample-data line is its caption |
 | `overview.paths` | — | Drawn live by `StrategyPaths.jsx` |
-| `rivals.media` | `public/media/fundseeder/fs-rivals-*` (crop `1464:708:84:70`) | Video, frameless (hard edges) |
+| `overview.traderView` | `public/media/fundseeder/fs-trader-view.webp` (the full All Traders view; 2000×1233) | The overview's aside: bleeds off the right edge at 1200px and up; frameless, lightbox |
+| `rivals.media` | `public/media/fundseeder/fs-rivals-*` (1464×708) | Video, frameless (hard edges) |
 | `tiers.ladder` | `tiers/tier-d.webp` … `tier-s.webp` | Drawn by `TierLadder.jsx` around the product's badges |
-| `seeded.media` | `public/media/fundseeder/fs-seeded-*` (crop `1794:708:84:70`) | Video, full-bleed stage, frameless (hard edges) |
-| `countries.media` | `public/media/fundseeder/fs-countries.webp` (x 160–3060, y 120–1550; 2400×1183) | Frameless (hard edges) |
-| `compare.pinned` | `public/media/fundseeder/fs-pinned-row.webp` (x 1052–3770, y 1094–2156; 2600×1016) | Wide stage, frameless |
+| `seeded.media` | `public/media/fundseeder/fs-seeded-*` (1794×708) | Video, full-bleed stage, frameless (hard edges) |
+| `countries.media` | `public/media/fundseeder/fs-countries-*` (1450×708) | Video, frameless (hard edges) |
+| `compare.pinned` | `public/media/fundseeder/fs-leaderboard.webp` (the full leaderboard, one row expanded; 2000×1463) | Wide stage, frameless |
 | `signal.media` | `signal/pairwise-evidence.webp` (345×275) · `signal/connection-detail.webp` (1194×340) | A `MediaRail` at 275px (220px on phones). The connection detail keeps its counts row: cropped it is 1194×164, too small at that height. |
 
 The globe loops and stills are in `public/media/fundseeder/` (served as-is,
-not bundled), made from `fundseederViz/globeCaptures`. Each loop has its own crop (above),
-without the app's sidebar, top bar, scrollbar or FILTERS bar (the app card
-spans x 81–1880 and y 67–778 of the 1920×1080 source). The crop is the only
-change: source frame rate (60fps, passthrough), no scaling, no fades, no
-audio, BT.709 kept. One size per clip: `<name>.webm` (VP9), `<name>.mp4`
-(H.264) and `<name>-poster.webp`. Posters are
-settled, cursor-free frames: Last Visit 1.5s, Rivals 3.4s, Seeded 17.6s. `v2/f01-hero-desktop.webp` and `v2/f04-nearby-rivals.webp`
+not bundled). Each loop's `<name>.webm` is Jon's own optimized VP9 export,
+used byte for byte, not re-encoded (`fundseederViz/globeCaptures/newCapturesOBS/exports`;
+the fixed seeded render is `ScreenCaptures/Video/renders/fs-seeded.webm`).
+The `<name>.mp4` (H.264, the fallback) and `<name>-poster.webp` are made
+from it: source frame rate (60fps, passthrough), no crop, scaling or fades, no
+audio, tagged BT.709. Posters are settled, cursor-free frames: Last Visit
+1.5s, Rivals 4.2s, Seeded 8s, Countries 0.5s.
+
+The crystal face's loop (`fs-crystal-orbit-1024.*`, `projects.js`
+`faceVideo`) is the 1024×512 `fs-crystal-orbit` export, upright; the face
+turns it in the texture's UV transform (`configureFaceVideoTexture` in
+`useFacetOverlayGeometry.js`). Its poster, `fs-crystal-orbit-poster.webp`
+(`overlayImage`), is the first frame stored turned 180°, the way the stills
+are drawn. `v2/f01-hero-desktop.webp` and `v2/f04-nearby-rivals.webp`
 stay in the repo, unused.
 
 The figures are FundSeeder's own, as of October 7, 2026: 20 traders seeded

@@ -47,12 +47,14 @@ const FundSeederCaseStudy = ({ project, onClose }) => {
         metadata={c.hero.metadata}
       />
 
-      {/* What one added strategy sets off: split, one link across, merge at S. */}
+      {/* What one added strategy sets off: split, one link across, merge at S.
+          The whole trader's view beside it, before Rivals zooms in. */}
       <CaseStudyOverview
         tone="b"
         title={c.overview.title}
         body={c.overview.body}
         media={<StrategyPaths {...c.overview.paths} />}
+        aside={c.overview.traderView}
       />
 
       <SplitSection
@@ -92,7 +94,7 @@ const FundSeederCaseStudy = ({ project, onClose }) => {
         media={c.countries.media}
       />
 
-      {/* The pinned row in the wide stage, so the table text stays readable. */}
+      {/* The leaderboard in the wide stage, so the table text stays readable. */}
       <SequenceSection
         tone="b"
         title={c.compare.title}

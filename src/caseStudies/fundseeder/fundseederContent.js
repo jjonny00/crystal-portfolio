@@ -89,6 +89,19 @@ export const fundseederContent = {
       'FundSeeder connects independent traders with investment capital. Working with stakeholders and developers, I replaced disconnected leaderboards with a single competition and designed the review tools that support funding decisions.',
       'We counted someone as activated when they added a strategy. That same action put a record in front of our reviewers.',
     ],
+    // The full All Traders view, beside the copy and diagram (the overview's
+    // aside): Strategy Performance and High Scores, the globe and podium, the
+    // ranked table with the trader's pinned row. Native ratio, frameless.
+    traderView: {
+      src: `${MEDIA}/fs-trader-view.webp`,
+      aspectRatio: '2000 / 1233',
+      width: 2000,
+      height: 1233,
+      frame: 'none',
+      expandable: true,
+      alt: 'The trader’s full leaderboard view. On the left, the InformationNominal strategy’s performance, an A-tier badge and a rising return curve, above High Scores: four records, each with the trader’s own figure and personal best. On the right, the trader’s standing at 19, global reach and most active countries beside the globe, the top three traders, and the ranked table of ranks 1 to 7, with the trader’s own row, 19, ChartSlug, pinned beneath it.',
+      caption: 'The trader’s view, with strategy performance, personal bests, and the ranked field on one screen.',
+    },
     // Drawn by StrategyPaths: what one added strategy sets off. Its words are
     // the previous flow's, shortened to labels.
     paths: {
@@ -155,14 +168,14 @@ export const fundseederContent = {
 
   // The globe's Countries mode.
   countries: {
-    title: 'Your Points Count Toward Your Country’s Score',
-    body: ['I wanted traders farther down the leaderboard to have a stake in a close race. Even if first place is out of reach, the 32 points you add to your country’s total still count.'],
+    title: 'Give Traders a Team to Root For',
+    body: ['Your rank tells you where you stand, and Rivals gives you someone to chase. I designed the Country Cup to give traders a team to root for. Each country competes on its traders’ average change in FS Score over the quarter, so even in 4,000th place you can help your country climb. That gives you a reason to check next week’s standings even if your own rank hasn’t moved.'],
     media: {
-      src: `${MEDIA}/fs-countries.webp`,
-      aspectRatio: '2400 / 1183',
+      video: `${MEDIA}/fs-countries`,
+      aspectRatio: '1450 / 708',
       ...GLOBE,
-      alt: 'The leaderboard globe in Countries mode: North America highlighted, a Country Standings panel ranking the USA first on 247 points ahead of the UK and Canada, and pins with each country’s points.',
-      caption: 'The country standings show your country’s rank and your contribution to its total.',
+      alt: 'The leaderboard globe in Country Cup mode: the USA’s standing and points beside the top countries, Portugal, Poland and Sweden, then closer looks at the USA and Portugal.',
+      caption: 'Portugal leads at +3.02 on average. Your +2.40 helps lift the US.',
     },
   },
 
@@ -171,15 +184,19 @@ export const fundseederContent = {
     body: [
       'I kept the first view compact enough to compare rows. Traders can filter the field, expand a strategy, and examine performance over a date range or stress event. Their own row stays pinned, so they can look further up the table without losing their point of comparison.',
     ],
-    // The leaderboard table, from the FILTERS bar down to the pinned
-    // "ChartSlug · YOU" row (fsGlobeYouRow.png, x 1052–3770, y 1094–2156), in
-    // the wide stage so its text stays readable. Frameless.
+    // The whole leaderboard: globe, top traders and the table, with one
+    // strategy expanded and the trader's own row pinned at the bottom. In the
+    // wide stage so its text stays readable. Frameless.
     pinned: {
-      src: `${MEDIA}/fs-pinned-row.webp`,
-      aspectRatio: '2600 / 1016',
+      src: `${MEDIA}/fs-leaderboard.webp`,
+      aspectRatio: '2000 / 1463',
+      width: 2000,
+      height: 1463,
+      // Never past 100%: at most 1000px wide on a 2x screen.
+      noUpscale: true,
       frame: 'none',
       expandable: true,
-      alt: 'The leaderboard table scrolled to ranks 39 to 47, each row with its trader, strategy, previous rank, annual return, adjusted Sortino, daily GPR, correlation to the S&P 500, account size and FS Score. Pinned beneath the scrolling rows, the trader’s own row: 19, ChartSlug, marked You.',
+      alt: 'The full leaderboard: date ranges and a stress-event menu along the top; the trader’s standing, global reach and most active countries beside the globe; the top three traders on the right. Below, the table of ranks 1 to 7, the third expanded to show its track record, returns, drawdown, volatility, Sharpe ratio and correlation to the S&P 500. Pinned beneath the rows, the trader’s own: 19, ChartSlug, marked You.',
       caption: 'Your row stays pinned at the bottom as you scroll through the field.',
     },
   },

@@ -24,8 +24,13 @@
 //                   (the default for video)
 //   frame="none"    nothing around it at all: hard edges, no radius, shadow or
 //                   border, like any photo
+//
+// `noUpscale` (with `width`, the image's own pixel width) keeps an image at
+// or below 100%: it never draws larger than one image pixel per screen pixel,
+// so a 2000px capture is at most 1000px wide on a 2x screen. Below that it
+// fills its slot as usual; capped, it is centred in it.
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import PlaceholderMedia from './PlaceholderMedia';
 import LoopVideo from './LoopVideo';
 import { useMediaViewer } from './MediaViewer';
@@ -34,6 +39,26 @@ import { createLogger } from '../../utils/logger';
 
 const logger = createLogger('CaseStudyMedia');
 const isDev = import.meta.env.DEV;
+
+// The screen's device pixel ratio, kept current as the window moves between
+// screens or zooms. 1 until mounted (the prerender has no screen).
+const useDevicePixelRatio = (enabled) => {
+  const [ratio, setRatio] = useState(1);
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined') return undefined;
+    let query = null;
+    const update = () => {
+      query?.removeEventListener?.('change', update);
+      const current = window.devicePixelRatio || 1;
+      setRatio(current);
+      query = window.matchMedia?.(`(resolution: ${current}dppx)`) || null;
+      query?.addEventListener?.('change', update);
+    };
+    update();
+    return () => query?.removeEventListener?.('change', update);
+  }, [enabled]);
+  return ratio;
+};
 
 /**
  * Normalizes the media description a section receives. Sections accept either a
@@ -67,6 +92,8 @@ const CaseStudyMedia = ({
   height = null,
   /** Hero media should not wait for the intersection observer. */
   priority = false,
+  /** Never draw past 100% (one image pixel per screen pixel); needs `width`. */
+  noUpscale = false,
   /** Lets a gallery hand the whole set to the viewer instead of one slide. */
   onExpand = null,
   className = '',
@@ -80,6 +107,8 @@ const CaseStudyMedia = ({
   const hasImage = Boolean(src) && !hasChildren && !hasVideo;
   const canExpand = expandable && hasImage;
   const frameStyleName = frame || (hasVideo ? 'screen' : null);
+  const capWidth = noUpscale && hasImage && Number(width) > 0;
+  const pixelRatio = useDevicePixelRatio(capWidth);
 
   if (isDev && hasImage && !alt) {
     logger.warn(`missing alt text for "${src}"`);
@@ -145,9 +174,10 @@ const CaseStudyMedia = ({
 
   return (
     <figure
-      className={`cs-media ${className}`.trim()}
+      className={`cs-media ${capWidth ? 'cs-media--no-upscale' : ''} ${className}`.replace(/\s+/g, ' ').trim()}
       data-frame={frameStyleName || undefined}
       {...rest}
+      style={capWidth ? { ...rest.style, maxWidth: `${Number(width) / pixelRatio}px` } : rest.style}
     >
       {canExpand ? (
         <button

@@ -109,7 +109,7 @@ another one:
 | Component | Shape |
 | --- | --- |
 | `CaseStudyHero` | Project name, case study title, intro, hero media, and the project's `metadata` (role, team, platform…) under the intro in two columns. An optional `after` is a full-width row under it all (Forest Giant's compact gallery). Mobile is a different composition, not a shrunk grid. |
-| `CaseStudyOverview` | Narrative + media in a content column. |
+| `CaseStudyOverview` | Narrative + media in a content column. An optional `aside` puts one more piece of media in a right-hand column (46/54), level with the first paragraph and bleeding off the right edge; it stacks after the narrative below 1200px. |
 | `SplitSection` | `direction="text-left"` / `"text-right"`. Media bleeds off the outer edge. Mobile collapses to title → body → media → caption. An optional `takeaway` closes the text column, since the media is beside it rather than above. |
 | `SequenceSection` | Title, intro, a wide stage, caption, optional takeaway. |
 | `FeatureSection` | Centred title, intro, a full-bleed stage, caption, optional takeaway. |
@@ -158,10 +158,13 @@ not the projects either side have case studies of their own.
 ## Media
 
 `CaseStudyMedia` is the single media primitive (images, and looping video by a
-`video` base path: see `LoopVideo.jsx`; `frame="screen" | "none"` for
-product captures): responsive sources, `contain` /
+`video` base path: see `LoopVideo.jsx`, which also gives every loop a pause
+button and an expand button into the device's own full-screen player;
+`frame="screen" | "none"` for product captures): responsive sources, `contain` /
 `cover`, aspect-ratio reservation (no layout shift), lazy loading below the fold,
-optional enlargement, and a `fullSrc` used only by the enlarged view.
+optional enlargement, a `fullSrc` used only by the enlarged view, and
+`noUpscale` (with `width`, the image's pixel width), which keeps an image at or
+below 100% on the reader's screen and centres it when that caps it.
 `MediaGallery` arranges several of them (`2-up`, `3-up`, `stacked`, collapsing to
 one column on phones) and hands the whole set to the viewer when one is opened.
 

@@ -2,6 +2,11 @@
 //
 // Narrative + media in the content column. The project's metadata lives in the
 // hero (CaseStudyHero's `metadata`), not here.
+//
+// `aside` (optional): one more piece of media in a right-hand column, its top
+// level with the first paragraph, the narrative and its media kept together on
+// the left. It stacks under them (after the content's media) once the two
+// columns would crowd each other. Without it the section is unchanged.
 
 import React, { useId } from 'react';
 import CaseStudySection from './CaseStudySection';
@@ -12,6 +17,7 @@ const CaseStudyOverview = ({
   title,
   body = null,
   media = null,
+  aside = null,
   tone = 'b',
   id = null,
   children = null,
@@ -22,7 +28,7 @@ const CaseStudyOverview = ({
     <CaseStudySection
       tone={tone}
       id={id}
-      className="cs-overview"
+      className={aside ? 'cs-overview cs-overview--aside' : 'cs-overview'}
       innerClassName="cs-overview__inner"
       aria-labelledby={headingId}
     >
@@ -39,6 +45,8 @@ const CaseStudyOverview = ({
         )}
         {children}
       </div>
+
+      {aside && <div className="cs-overview__aside">{renderMedia(aside)}</div>}
     </CaseStudySection>
   );
 };

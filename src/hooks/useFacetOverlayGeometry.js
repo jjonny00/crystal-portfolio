@@ -58,8 +58,8 @@ const syncMaskStrength = (slot) => {
 // --- Face video -----------------------------------------------------------
 //
 // A project can name a looping video for its face (projects.js `faceVideo`, a
-// base path: <base>.webm / <base>.mp4, stored already turned 90° counter-clockwise, the
-// way the face draws its artwork). While that project is the one up, a
+// base path: <base>.webm / <base>.mp4, stored upright; configureFaceVideoTexture
+// turns it to the way the face draws its artwork). While that project is the one up, a
 // THREE.VideoTexture takes the overlay's map; when it goes, the still (the
 // project's overlayImage, its poster) comes back once the artwork has faded,
 // and the video and texture are disposed. The video is never attached to the
@@ -96,7 +96,7 @@ const startFaceVideo = (slot) => {
   // Swap the map only once a frame exists, so the face never goes black.
   const show = () => {
     if (slot.faceVideo !== face || face.showing) return;
-    configureOverlayTexture(texture, slot.bounds, slot.originalMaterial);
+    configureFaceVideoTexture(texture, slot.bounds, slot.originalMaterial);
     // No mipmaps on a video: a mipmap filter would sample nothing.
     texture.generateMipmaps = false;
     texture.minFilter = THREE.LinearFilter;
@@ -379,6 +379,23 @@ const configureOverlayTexture = (texture, bounds, referenceMaterial) => {
   texture.offset.set(-bounds.minU * repeatU, -bounds.minV * repeatV);
   texture.center.set(0, 0);
   texture.rotation = 0;
+  texture.needsUpdate = true;
+};
+
+// The face video is stored upright, but the face draws its artwork turned:
+// the stills are turned on a canvas (above), the video by its UV transform.
+// configureOverlayTexture maps the face onto q = repeat·uv + offset; the
+// upright frame is q turned 90° (u = 1 − q.v, v = q.u), which in three's
+// setUvTransform is the repeat swapped, a −90° rotation about (0, 0), and the
+// offset moved to match.
+const configureFaceVideoTexture = (texture, bounds, referenceMaterial) => {
+  configureOverlayTexture(texture, bounds, referenceMaterial);
+  const { x: repeatU, y: repeatV } = texture.repeat;
+  const { x: offsetU, y: offsetV } = texture.offset;
+  texture.repeat.set(repeatV, repeatU);
+  texture.offset.set(1 - offsetV, offsetU);
+  texture.center.set(0, 0);
+  texture.rotation = -Math.PI / 2;
   texture.needsUpdate = true;
 };
 
@@ -781,7 +798,7 @@ export const useFacetOverlayGeometry = (facetKeys, { maskPathForFacet = null, ma
       syncMaskStrength(slot);
       // A re-registration keeps a playing face video, on the new material.
       if (slot.faceVideo?.showing) {
-        configureOverlayTexture(slot.faceVideo.texture, bounds, baseMaterial);
+        configureFaceVideoTexture(slot.faceVideo.texture, bounds, baseMaterial);
         slot.faceVideo.texture.generateMipmaps = false;
         slot.faceVideo.texture.minFilter = THREE.LinearFilter;
         slot.overlayMaterial.map = slot.faceVideo.texture;
